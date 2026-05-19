@@ -16,3 +16,7 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 gurobi.log
+
+gcp_key
+
+gcp_key.pub
