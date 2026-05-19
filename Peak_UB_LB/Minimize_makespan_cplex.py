@@ -14,7 +14,7 @@ def create_assignment_model(n, m, c, model, Ex_times, W):
     AVG = (sum(W_sorted[i] for i in range(n)) // n) * m
     LB = max(W_sorted[i] for i in range(n))
     makespan = model.integer_var(name='makespan')
-    Wmax = (AVG + LB) // 2
+    Wmax = (UB + LB) // 2
     return model, X, S, Wmax, makespan
 
 def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):

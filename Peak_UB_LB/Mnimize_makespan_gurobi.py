@@ -34,7 +34,7 @@ def create_assignment_model(n, m, c, model, Ex_times, W):
     AVG = (sum(W_sorted[i] for i in range(n)) // n) * m
     LB = max(W_sorted[i] for i in range(n))
     makespan = model.addVar(vtype=gurobipy.GRB.INTEGER, name="makespan")
-    Wmax = (AVG + LB) // 2
+    Wmax = (UB + LB) // 2
     model.update()
     return model, X, S, Wmax, makespan
 
