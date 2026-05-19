@@ -178,7 +178,6 @@ def get_value(solution, n, m, c, W, Ex_times):
     return schedule, makespan, peak
 
 def write_to_csv(result):
-    os.makedirs("Output", exist_ok=True)
     with open("Output/result_gurobi.csv", "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(result)

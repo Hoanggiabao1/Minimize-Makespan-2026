@@ -421,7 +421,7 @@ def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, statu
     global best_result
     
     # Write to CSV
-    with open("Output/" + filename, "a", newline='') as f:
+    with open("Peak_UB_LB/Output/" + filename, "a", newline='') as f:
         writer = csv.writer(f)
         row = []
         row.append(ins)

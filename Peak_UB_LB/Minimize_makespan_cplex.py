@@ -97,7 +97,7 @@ def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W):
         return None, n*m+n*c, cons
 
 def write_html(file_name, ans_map, n, m, c, peak, makespan):
-    with open(f"output/{file_name}_makespan {n} {m} {c}.html", "w") as f:
+    with open(f"Output/{file_name}_makespan {n} {m} {c}/{file_name}_makespan {n} {m} {c}.html", "w") as f:
         f.write("<html><head><style>")
         f.write("table {border-collapse: collapse;}")
         f.write("td, th {border: 1px solid black; padding: 5px; text-align: center;}")
