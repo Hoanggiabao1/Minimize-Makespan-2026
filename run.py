@@ -2,7 +2,6 @@ import os
 import subprocess
 import re
 
-# Danh sách file của bạn
 file_name = [
     # Easy families 
     # MERTENS 
@@ -137,19 +136,53 @@ file_name = [
     ["WEEMAG", 30, 56]
 ]
 
-# Tạo thư mục chứa log nếu chưa có
-log_dir = "logs"
-os.makedirs(log_dir, exist_ok=True)
+#Test 1 số thực nghiệm để kiểm tra tính ổn định của code trước khi chạy hết tất cả các file
+file_name1 = [
+     # Easy families 
+    # MERTENS 
+    ["MERTENS", 6, 10, 164],      # 0
+    ["MERTENS", 2, 29, 54],     # 1
+    # BOWMAN
+    ["BOWMAN", 5, 30, 146],      # 2
+
+    # JAESCHKE
+    ["JAESCHKE", 8, 10, 173],     # 3
+    ["JAESCHKE", 3, 25, 47],    # 4
+
+    # JACKSON
+    ["JACKSON", 8, 12, 166],      # 5
+    ["JACKSON", 3, 31, 57],     # 6
+
+    # MANSOOR
+    ["MANSOOR", 4, 93, 111],     # 7
+    ["MANSOOR", 2, 185, 71],     # 8
+
+    # MITCHELL
+    ["MITCHELL", 8, 27, 225],    # 9
+    ["MITCHELL", 3, 70, 84],    # 10
+
+    # ROSZIEG
+    ["ROSZIEG", 10, 25, 242],    # 11
+    ["ROSZIEG", 4, 63, 118],     # 12
+
+    # Hard families
+    # BUXEY
+    ["BUXEY", 7, 93, 184],       # 13
+    ["BUXEY", 14, 47, 999],      # 14
+   
+    ["SAWYER", 14, 47, 282],     # 15
+    ["SAWYER", 7, 93, 158]       # 16
+]
 
 TIMEOUT_LIMIT = 3600
 INPUT_FILE_NAME = "Minimize_makespan_origin.py"
 OUTPUT_FILE_NAME = "Output/incremental_binary_merger.csv"
 
-for i, item in enumerate(file_name):
+for i, item in enumerate(file_name1):
     family = item[0]
     param1 = str(item[1])
     
-    print(f"[{i+1}/{len(file_name)}] Đang chạy: {family} {param1}...", end="", flush=True)
+    print(f"[{i+1}/{len(file_name1)}] Đang chạy: {family} {param1}...", end="", flush=True)
     
     cmd = ["python", "-u", INPUT_FILE_NAME, family, param1]
     

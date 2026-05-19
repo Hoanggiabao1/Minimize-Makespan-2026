@@ -31,10 +31,10 @@ def create_assignment_model(n, m, c, model, Ex_times, W):
     S = [[model.addVar(vtype=gurobipy.GRB.BINARY, name=f'S_{i}_{t}') for t in range(c)] for i in range(n)]
     W_sorted = sorted(W, reverse=True)
     UB = sum(W_sorted[i] for i in range(m))
+    AVG = (sum(W_sorted[i] for i in range(n)) // n) * m
     LB = max(W_sorted[i] for i in range(n))
     makespan = model.addVar(vtype=gurobipy.GRB.INTEGER, name="makespan")
-    Wmax = math.ceil((UB + LB)/2)
-    print(f"peak Wmax: {Wmax}")
+    Wmax = math.ceil((AVG + LB)/2)
     model.update()
     return model, X, S, Wmax, makespan
 
