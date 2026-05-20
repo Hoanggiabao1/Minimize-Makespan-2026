@@ -18,7 +18,7 @@ from pysat.pb import PBEnc, EncType
 import csv
 
 # Sample input parameters
-n = 25
+n = 0
 val = 0
 cons = 0
 sol = 0
@@ -73,6 +73,27 @@ def read_input(filename):
         
     with open('task_power/' + filename + '.txt', 'r') as k:
         W = [int(line.strip()) for line in k if line.strip()]
+
+def reset(idx):
+    global n, m, val, cons, sol, solbb, type, filename, W, neighbors, reversed_neighbors, visited, toposort, clauses, time_list, adj, forward, var_map, var_counter, current_instance_id
+    current_instance_id = idx
+    m = idx[1]
+    val = 0
+    cons = 0
+    sol = 0
+    solbb = 0
+    type = 1
+    var_counter = 0
+    var_map = {}
+    W = [int(line.strip()) for line in open('task_power/'+idx[0]+'.txt')]
+    neighbors = [[ 0 for i in range(200)] for j in range(200)]
+    reversed_neighbors = [[ 0 for i in range(200)] for j in range(200)]
+    visited = [False for i in range(200)]
+    toposort = []
+    clauses = []
+    time_list = []
+    adj = []
+    forward = [0 for i in range(200)]
 
 
 def delv(i, temp):
@@ -390,32 +411,28 @@ def optimal(X,S,A,n,m,makespan,sol,start_time, peak):
     sol += 1
     if model is None:
         print("Initial solve timed out or no solution")
-        return 0, [], var_counter, clauses, "UNSAT"
+        return 0, [], var_counter, clauses, "UNSAT", sol
      
     result = get_value(model, makespan)
 
     bestValue, ansmap = result
-    print("New makespan:",bestValue, 
-          #end="\r"
-          )
+    print("New makespan:",bestValue, end="\r")
     while (True):
         # Add new constraint to find better solution
         for i in range(n):
             if bestValue - time_list[i] - 1 < 0:
                 print("Optimal solution found.")
-                return bestValue, ansmap, var_counter, clauses, "Optimal"
+                return bestValue, ansmap, var_counter, clauses, "Optimal", sol
             solver.add_clause([get_var("T", i, bestValue - time_list[i] - 1)])
         
         model = solve(solver)
         sol += 1
         if model is None:
             print("No better solution found.")
-            return bestValue, ansmap, var_counter, clauses, "Optimal"
+            return bestValue, ansmap, var_counter, clauses, "Optimal", sol
         
         bestValue, ansmap = get_value(model, makespan)
-        print("New makespan:", bestValue, 
-              #end="\r"
-              )        
+        print("New makespan:", bestValue, end="\r")        
 
 def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_binary_merger.csv"):
     global best_result
@@ -449,12 +466,13 @@ def calculate_peak():
 if __name__ == "__main__":
     filename = sys.argv[1]
     m = int(sys.argv[2])
+    reset([filename, m])
     read_input(filename)
     sol = 0
     startime = time.time()
     peak, makespan = calculate_peak()
     X, A, S = generate_variables(n,m,makespan)
-    bestValue, ansmap, var, clauses, status = optimal(X,S,A,n,m,makespan,sol,startime, peak)
+    bestValue, ansmap, var, clauses, status, sol = optimal(X,S,A,n,m,makespan,sol,startime, peak)
     endtime = time.time()
     if status == "Optimal":
         print(f"Optimal makespan: {bestValue}")
