@@ -178,7 +178,7 @@ TIMEOUT_LIMIT = 3600
 INPUT_FILE_NAME = "AVG_Peak/Minimize_makespan_origin.py"
 OUTPUT_FILE_NAME = "AVG_Peak/Output/incremental_binary_merger.csv"
 
-for i, item in enumerate(file_name1[13:]):
+for i, item in enumerate(file_name1):
     family = item[0]
     param1 = str(item[1])
     

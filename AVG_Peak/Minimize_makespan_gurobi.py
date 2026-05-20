@@ -31,12 +31,12 @@ def create_assignment_model(n, m, c, model, Ex_times, W):
     S = [[model.addVar(vtype=gurobipy.GRB.BINARY, name=f'S_{i}_{t}') for t in range(c)] for i in range(n)]
     W_sorted = sorted(W, reverse=True)
     UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) // n) * m
+    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
     LB = max(W_sorted[i] for i in range(n))
     makespan = model.addVar(vtype=gurobipy.GRB.INTEGER, name="makespan")
-    Wmax = (AVG + LB) // 2
+    Wmax = (AVG + LB) / 2
     model.update()
-    return model, X, S, Wmax, makespan
+    return model, X, S, int(Wmax), makespan
 
 def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
     cons = 0
@@ -175,6 +175,8 @@ def get_value(solution, n, m, c, W, Ex_times):
     schedule[m] = [sum(schedule[j][t] for j in range(m)) for t in range(c)]
     peak = max(schedule[m])
     makespan = solution.getVarByName("makespan").X
+    for line in schedule:
+        print(line[:math.ceil(makespan)])
     return schedule, makespan, peak
 
 def write_to_csv(result):
@@ -230,5 +232,5 @@ file_name2 = [
     ["SAWYER", 7, 93, 158]       # 16
 ]
 
-for i in range(len(file_name2)):
+for i in range(1,2):
     optimal(file_name2[i])

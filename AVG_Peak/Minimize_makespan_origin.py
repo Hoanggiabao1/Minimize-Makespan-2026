@@ -374,21 +374,24 @@ def get_value(solution, c):
             for i in range(c - time_list[j] + 1):
                 tmp.append(solution[cnt])
                 cnt += 1
+            for i in range(c - time_list[j] + 1, c):
+                tmp.append(-1)
             s.append(tmp)
-       
-        ansmap = [[0 for _ in range(c)] for _ in range(m + 1)]
-        value = 0
-        for i in range(m):
-            for k in range(n):
-                for j in range(c - time_list[k] + 1):    
-                    if (x[k][i] > 0 and s[k][j] > 0):
-                        for l in range(time_list[k]):
-                            ansmap[i][j + l] = W[k]
-                            value = max(value, j + l + 1)
         
-        for i in range(c):
-            ansmap[m][i] = sum(ansmap[j][i] for j in range(m))
-        return value, [ansmap[i][:makespan-1] for i in range(m + 1)]
+        value = 0
+        table = [[0 for t in range(c)] for k in range(m + 1)]
+        for k in range(m):
+            for t in range(c):
+                for j in range(n):
+                    if x[j][k] > 0 and s[j][t] > 0:
+                        for l in range(time_list[j]):
+                            table[k][t+l] += W[j]
+                        print(f"Task {j+1} assigned to machine {k+1} at time {t}")
+                        value = max(value, t + time_list[j])
+        
+        table[m] = [sum(table[j][t] for j in range(m)) for t in range(c)]
+
+        return value, [table[i][:value] for i in range(m)]
 
 def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     global filename
@@ -451,11 +454,11 @@ def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, statu
 def calculate_peak():
     W_sorted = sorted(W, reverse=True)
     UB = sum(W_sorted[i] for i in range(m))
-    AVG = math.ceil((sum(W_sorted[i] for i in range(n)) / n) * m)
+    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
     LB = max(W_sorted)
-    peak = (AVG + LB) // 2
+    peak = (AVG + LB) / 2
     makespan = max(max(time_list), (sum(time_list[i] for i in range(n)) // m)*2)
-    return peak, makespan
+    return int(peak), makespan
 
 if __name__ == "__main__":
     filename = sys.argv[1]
@@ -467,6 +470,8 @@ if __name__ == "__main__":
     peak, makespan = calculate_peak()
     X, A, S = generate_variables(n,m,makespan)
     bestValue, ansmap, var, clauses, status, sol = optimal(X,S,A,n,m,makespan,sol,startime, peak)
+    for line in ansmap:
+        print(line)
     endtime = time.time()
     if status == "Optimal":
         print(f"Optimal makespan: {bestValue}")
