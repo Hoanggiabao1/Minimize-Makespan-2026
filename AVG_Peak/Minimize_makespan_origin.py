@@ -1,13 +1,9 @@
 from math import inf
 import math
-import re
 import time
 import signal
-import json
-import subprocess
-import os
 from datetime import datetime
-
+import signal
 from numpy import var
 from pysat.solvers import Cadical195
 import fileinput
@@ -394,12 +390,19 @@ def get_value(solution, c):
             ansmap[m][i] = sum(ansmap[j][i] for j in range(m))
         return value, [ansmap[i][:makespan-1] for i in range(m + 1)]
 
-def optimal(X,S,A,n,m,makespan,sol,start_time, peak):
-    global filename  # Access the global filename variable
-    
-    ip1,ip2 = preprocess(n,m,makespan,time_list,adj)
+class SatTimeoutException(Exception):
+    pass
 
-    clauses = generate_clauses(n,m,makespan,time_list,adj,ip1,ip2,X,S,A, peak)
+def sat_timeout_handler(signum, frame):
+    raise SatTimeoutException()
+
+def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
+    global filename
+    timeout = 200
+    signal.signal(signal.SIGALRM, sat_timeout_handler)
+    
+    ip1, ip2 = preprocess(n, m, makespan, time_list, adj)
+    clauses = generate_clauses(n, m, makespan, time_list, adj, ip1, ip2, X, S, A, peak)
 
     solver = Cadical195()
     print("Initial makespan:", makespan)
@@ -407,16 +410,29 @@ def optimal(X,S,A,n,m,makespan,sol,start_time, peak):
     for clause in clauses:
         solver.add_clause(clause)
 
-    model = solve(solver)
+    remaining_time = timeout - (time.time() - start_time)
+    if remaining_time <= 0:
+        print("Timeout trước khi kịp solve lần đầu")
+        return 0, [], var_counter, clauses, "TIMEOUT", sol
+
+    signal.alarm(max(1, int(remaining_time)))
+    
+    try:
+        model = solve(solver)
+        signal.alarm(0) 
+    except SatTimeoutException:
+        print("Initial solve timed out!")
+        return 0, [], var_counter, clauses, "TIMEOUT", sol
+
     sol += 1
     if model is None:
-        print("Initial solve timed out or no solution")
+        print("Initial solve no solution")
         return 0, [], var_counter, clauses, "UNSAT", sol
      
     result = get_value(model, makespan)
-
     bestValue, ansmap = result
-    print("New makespan:",bestValue, end="\r")
+    print("New makespan:", bestValue, end="\r")
+    
     while (True):
         # Add new constraint to find better solution
         for i in range(n):
@@ -425,14 +441,25 @@ def optimal(X,S,A,n,m,makespan,sol,start_time, peak):
                 return bestValue, ansmap, var_counter, clauses, "Optimal", sol
             solver.add_clause([get_var("T", i, bestValue - time_list[i] - 1)])
         
-        model = solve(solver)
+        remaining_time = timeout - (time.time() - start_time)
+        if remaining_time <= 0:
+            return bestValue, ansmap, var_counter, clauses, "TIMEOUT", sol
+
+        signal.alarm(max(1, int(remaining_time)))
+        
+        try:
+            model = solve(solver)
+            signal.alarm(0) 
+        except SatTimeoutException:
+            return bestValue, ansmap, var_counter, clauses, "TIMEOUTP", sol
+        
         sol += 1
         if model is None:
             print("No better solution found.")
             return bestValue, ansmap, var_counter, clauses, "Optimal", sol
         
         bestValue, ansmap = get_value(model, makespan)
-        print("New makespan:", bestValue, end="\r")        
+        print("New makespan:", bestValue, end="\r") 
 
 def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_binary_merger.csv"):
     global best_result
