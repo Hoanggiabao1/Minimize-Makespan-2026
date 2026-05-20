@@ -390,16 +390,8 @@ def get_value(solution, c):
             ansmap[m][i] = sum(ansmap[j][i] for j in range(m))
         return value, [ansmap[i][:makespan-1] for i in range(m + 1)]
 
-class SatTimeoutException(Exception):
-    pass
-
-def sat_timeout_handler(signum, frame):
-    raise SatTimeoutException()
-
 def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     global filename
-    timeout = 200
-    signal.signal(signal.SIGALRM, sat_timeout_handler)
     
     ip1, ip2 = preprocess(n, m, makespan, time_list, adj)
     clauses = generate_clauses(n, m, makespan, time_list, adj, ip1, ip2, X, S, A, peak)
@@ -410,49 +402,24 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     for clause in clauses:
         solver.add_clause(clause)
 
-    remaining_time = timeout - (time.time() - start_time)
-    if remaining_time <= 0:
-        print("Timeout trước khi kịp solve lần đầu")
-        return 0, [], var_counter, clauses, "TIMEOUT", sol
-
-    signal.alarm(max(1, int(remaining_time)))
-    
-    try:
-        model = solve(solver)
-        signal.alarm(0) 
-    except SatTimeoutException:
-        print("Initial solve timed out!")
-        return 0, [], var_counter, clauses, "TIMEOUT", sol
-
+    model = solve(solver)
     sol += 1
     if model is None:
-        print("Initial solve no solution")
-        return 0, [], var_counter, clauses, "UNSAT", sol
+        print("Initial solve timed out!")
+        return 0, [], var_counter, clauses, "TIMEOUT", sol
      
     result = get_value(model, makespan)
     bestValue, ansmap = result
     print("New makespan:", bestValue, end="\r")
     
     while (True):
-        # Add new constraint to find better solution
         for i in range(n):
             if bestValue - time_list[i] - 1 < 0:
                 print("Optimal solution found.")
                 return bestValue, ansmap, var_counter, clauses, "Optimal", sol
             solver.add_clause([get_var("T", i, bestValue - time_list[i] - 1)])
         
-        remaining_time = timeout - (time.time() - start_time)
-        if remaining_time <= 0:
-            return bestValue, ansmap, var_counter, clauses, "TIMEOUT", sol
-
-        signal.alarm(max(1, int(remaining_time)))
-        
-        try:
-            model = solve(solver)
-            signal.alarm(0) 
-        except SatTimeoutException:
-            return bestValue, ansmap, var_counter, clauses, "TIMEOUTP", sol
-        
+        model = solve(solver)        
         sol += 1
         if model is None:
             print("No better solution found.")

@@ -176,9 +176,9 @@ file_name1 = [
 
 TIMEOUT_LIMIT = 3600
 INPUT_FILE_NAME = "AVG_Peak/Minimize_makespan_origin.py"
-OUTPUT_FILE_NAME = "AVG_peak/Output/incremental_binary_merger.csv"
+OUTPUT_FILE_NAME = "AVG_Peak/Output/incremental_binary_merger.csv"
 
-for i, item in enumerate(file_name1):
+for i, item in enumerate(file_name1[13:]):
     family = item[0]
     param1 = str(item[1])
     
@@ -200,14 +200,23 @@ for i, item in enumerate(file_name1):
             
     except subprocess.TimeoutExpired as e:
         status = "TIMEOUT"
-        captured_stdout = e.stdout if e.stdout else ""
-        captured_stderr = e.stderr if e.stderr else ""
-        print(captured_stdout)
+    
+        # Giải mã dữ liệu từ bytes sang string (thêm .decode('utf-8', errors='ignore'))
+        captured_stdout = e.stdout.decode('utf-8', errors='ignore') if e.stdout else ""
+        captured_stderr = e.stderr.decode('utf-8', errors='ignore') if e.stderr else ""
+        
+        # Tìm Initial makespan
         initial_makespan_match = re.search(r"Initial makespan:\s*([+-]?\d+(?:\.\d+)?)", captured_stdout)
         initial_makespan = initial_makespan_match.group(1) if initial_makespan_match else "N/A"
+    
+        # Tìm tất cả các New makespan xuất hiện trong stdout
         makespan_matches = re.findall(r"New makespan:\s*([+-]?\d+(?:\.\d+)?)", captured_stdout)
+    
+        # Lấy giá trị New makespan cuối cùng tìm được trong list
         last_makespan = makespan_matches[-1] if makespan_matches else "N/A"
+    
+        # Ghi vào file output
         with open(OUTPUT_FILE_NAME, "a") as f:
-            f.write(f"{family}, {param1}, {initial_makespan}, {last_makespan}, -, -, -, -, {status}, >3600\n")        
+            f.write(f"{family}, _, {param1}, {initial_makespan}, {last_makespan}, -, -, -, -, {status}, >3600\n")
 
 print("\n=== TẤT CẢ CÁC FILE ĐÃ ĐƯỢC XỬ LÝ XONG ===")
