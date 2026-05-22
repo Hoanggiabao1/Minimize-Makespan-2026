@@ -312,14 +312,37 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                 # Như ràng buộc trên nhưng t = last_j
                 clauses.append([-X[i][k], -X[j][k], -S[i][t], -get_var("T",j,c-time_list[j]-1)])
     
-    #(X[i][k] ^ X[j][k]) -> (A[i][t] ^ A[j][t]) cse-14
+    #(X[i][k] ^ X[j][k]) -> SM[i][j] cse-14a
+    for k in range(m):
+        for i in range(n-1):
+            for j in range(i+1,n):
+                if ip1[i][k] == 1 or ip1[j][k] == 1:
+                    continue
+                clauses.append([-X[i][k], -X[j][k], get_var("SM", i, j)])
+    
+    # (X[i][k] ^ X[j][l]) -> -SM[i][j] k khác l cse-14b
     for i in range(n-1):
         for j in range(i+1,n):
-            for k in range (m):
-                if ip1[i][k] == 1 or ip1[j][k] == 1 :
-                    continue
-                for t in range(c):
-                    clauses.append([-X[i][k], -X[j][k], -A[i][t], -A[j][t]])
+            for k in range(m-1):
+                for l in range(k+1,m):
+                    if ip1[i][k] == 1 or ip1[j][l] == 1:
+                        continue
+                    clauses.append([-X[i][k], -X[j][l], -get_var("SM", i, j)])
+    
+    # (SM[i][j] ^ S[i][t]) -> (T[j][t] V -T[j][t+time_list[j]-1]) cse-14c*
+    for i in range(n-1):
+        for j in range(i+1,n):
+            last_j = c - time_list[j]
+            for t in range(c - time_list[i] + 1):
+                max_t_index = last_j - 1
+                clause = [-get_var("SM", i, j), -S[i][t]]
+                t_left = t - time_list[j]
+                if 0 <= t_left <= max_t_index:
+                    clause.append(get_var("T", j, t_left))
+                t_right = t + time_list[i] - 1
+                if 0 <= t_right <= max_t_index:
+                    clause.append(-get_var("T", j, t_right))
+                clauses.append(clause)
 
     # cse-15-16:
     for j in range(n):
@@ -431,7 +454,7 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
-def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_binary_merger.csv"):
+def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM_Ti,j.csv"):
     global best_result
     
     # Write to CSV

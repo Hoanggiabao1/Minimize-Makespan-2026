@@ -6,16 +6,18 @@ import time
 import csv
 from docplex.cp.config import context
 
+context.solver.local.execfile = "/opt/ibm/ILOG/CPLEX_Studio_Community2212/cpoptimizer/bin/x86-64_linux/cpoptimizer"
+
 def create_assignment_model(n, m, c, model, Ex_times, W):
     X = [[model.binary_var(name=f'X_{i}_{j}') for j in range(m)] for i in range(n)]
     S = [[model.binary_var(name=f'S_{i}_{t}') for t in range(c)] for i in range(n)]
     W_sorted = sorted(W, reverse=True)
     UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) // n) * m
+    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
     LB = max(W_sorted[i] for i in range(n))
     makespan = model.integer_var(name='makespan')
-    Wmax = (AVG + LB) // 2
-    return model, X, S, Wmax, makespan
+    Wmax = (AVG + LB) / 2
+    return model, X, S, int(Wmax), makespan
 
 def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
     cons = 0
@@ -97,7 +99,7 @@ def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W):
         return None, n*m+n*c, cons
 
 def write_html(file_name, ans_map, n, m, c, peak, makespan):
-    with open(f"Output/{file_name}_makespan {n} {m} {c}/{file_name}_makespan {n} {m} {c}.html", "w") as f:
+    with open(f"AVG_Peak/Output/{file_name}_makespan {n} {m} {c}/{file_name}_makespan {n} {m} {c}.html", "w") as f:
         f.write("<html><head><style>")
         f.write("table {border-collapse: collapse;}")
         f.write("td, th {border: 1px solid black; padding: 5px; text-align: center;}")
@@ -177,7 +179,7 @@ def get_value(solution, n, m, c, W, Ex_times):
     return schedule, peak, makespan, model_makespan
 
 def write_to_csv(result):
-    with open("Output/result_cplex.csv", "a") as f:
+    with open("AVG_Peak/Output/result_cplex.csv", "a") as f:
         writer = csv.writer(f)
         writer.writerow(result)
 
@@ -376,5 +378,5 @@ file_name2 = [
 ]
 
 
-for i in range(2):
+for i in range(len(file_name2)):
     optimal(file_name2[i])

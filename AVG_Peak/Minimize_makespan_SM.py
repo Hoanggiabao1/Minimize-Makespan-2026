@@ -312,14 +312,28 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                 # Như ràng buộc trên nhưng t = last_j
                 clauses.append([-X[i][k], -X[j][k], -S[i][t], -get_var("T",j,c-time_list[j]-1)])
     
-    #(X[i][k] ^ X[j][k]) -> (A[i][t] ^ A[j][t]) cse-14
+    #(X[i][k] ^ X[j][k]) -> SM[i][j] cse-14a
+    for k in range(m):
+        for i in range(n-1):
+            for j in range(i+1,n):
+                if ip1[i][k] == 1 or ip1[j][k] == 1:
+                    continue
+                clauses.append([-X[i][k], -X[j][k], get_var("SM", i, j)])
+    
+    # (X[i][k] ^ X[j][l]) -> -SM[i][j] k khác l cse-14b
     for i in range(n-1):
         for j in range(i+1,n):
-            for k in range (m):
-                if ip1[i][k] == 1 or ip1[j][k] == 1 :
-                    continue
-                for t in range(c):
-                    clauses.append([-X[i][k], -X[j][k], -A[i][t], -A[j][t]])
+            for k in range(m-1):
+                for l in range(k+1,m):
+                    if ip1[i][k] == 1 or ip1[j][l] == 1:
+                        continue
+                    clauses.append([-X[i][k], -X[j][l], -get_var("SM", i, j)])
+    
+    # SM[i][j] -> (A[i][t] ^ A[j][t]) cse-14c
+    for i in range(n-1):
+        for j in range(i+1,n):
+            for t in range(c):
+                clauses.append([-get_var("SM", i, j), -A[i][t], -A[j][t]])
 
     # cse-15-16:
     for j in range(n):
@@ -431,11 +445,11 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
-def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_binary_merger.csv"):
+def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM.csv"):
     global best_result
     
     # Write to CSV
-    with open("Peak_UB_LB/Output/" + filename, "a", newline='') as f:
+    with open("AVG_Peak/Output/" + filename, "a", newline='') as f:
         writer = csv.writer(f)
         row = []
         row.append(ins)
@@ -456,7 +470,7 @@ def calculate_peak():
     UB = sum(W_sorted[i] for i in range(m))
     AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
     LB = max(W_sorted)
-    peak = (UB + LB) / 2
+    peak = (AVG + LB) / 2
     makespan = max(max(time_list), (sum(time_list[i] for i in range(n)) // m)*2)
     return int(peak), makespan
 

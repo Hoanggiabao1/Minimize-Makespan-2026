@@ -232,5 +232,5 @@ file_name2 = [
     ["SAWYER", 7, 93, 158]       # 16
 ]
 
-for i in range(1,2):
+for i in range(len(file_name2)):
     optimal(file_name2[i])
