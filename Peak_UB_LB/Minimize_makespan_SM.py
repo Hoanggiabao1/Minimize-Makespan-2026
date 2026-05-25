@@ -323,9 +323,9 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
     # (X[i][k] ^ X[j][l]) -> -SM[i][j] k khác l cse-14b
     for i in range(n-1):
         for j in range(i+1,n):
-            for k in range(m-1):
-                for l in range(k+1,m):
-                    if ip1[i][k] == 1 or ip1[j][l] == 1:
+            for k in range(m):
+                for l in range(m):
+                    if ip1[i][k] == 1 or ip1[j][l] == 1 or k == l:
                         continue
                     clauses.append([-X[i][k], -X[j][l], -get_var("SM", i, j)])
     

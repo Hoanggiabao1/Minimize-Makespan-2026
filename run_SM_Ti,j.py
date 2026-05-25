@@ -175,8 +175,9 @@ file_name1 = [
 ]
 
 TIMEOUT_LIMIT = 3600
-INPUT_FILE_NAME = "Peak_UB_LB/Minimize_makespan_SM_Ti,j.py"
-OUTPUT_FILE_NAME = "Peak_UB_LB/Output/incremental_SM_Ti,j.csv"
+INPUT_FOLDER = "AVG_Peak"
+INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_Ti,j.py"
+OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_SM_Ti,j.csv"
 
 for i, item in enumerate(file_name1):
     family = item[0]

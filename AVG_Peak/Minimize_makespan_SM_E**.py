@@ -92,21 +92,29 @@ def reset(idx):
     forward = [0 for i in range(200)]
 
 
-def delv(i, temp):
+'''
+    E** = E + (u, v) if u in E and v in E and (u, v) not in E
+    - Nếu u là đỉnh gốc (root_i), thì append (u, k) vào adj nếu chưa có
+    - Logic cập nhật temp[i] vẫn giữ nguyên để các tầng trên có dữ liệu quy hoạch động
+'''
+def delv(i, temp, root_i=None):
     global adj, neighbors, reversed_neighbors, ran
+    if root_i is None:
+        root_i = i
     if len(temp[i]) == 0:
         return []
     if ran[i] == 1:
         return temp[i]
+        
     for j in temp[i]:
-        con = delv(j, temp)
+        con = delv(j, temp, root_i)
         if con:
             for k in con:
-                if [i, k] not in adj:
-                    adj.append([i, k])
-                    neighbors[i][k] = 1
-                    reversed_neighbors[k][i] = 1
-                    temp[i].append(k)
+                if i == root_i: 
+                    if [i, k] not in adj:
+                        adj.append([i, k])
+                        neighbors[i][k] = 1
+                        reversed_neighbors[k][i] = 1
     ran[i] = 1
     return temp[i]
 
@@ -445,7 +453,7 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
-def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM.csv"):
+def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM_E**.csv"):
     global best_result
     
     # Write to CSV
