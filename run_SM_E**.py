@@ -107,33 +107,7 @@ file_name = [
     ["LUTZ2", 28, 18],      # 85
     ["LUTZ2", 26, 19],      # 86
     ["LUTZ2", 25, 20],      # 87
-    ["LUTZ2", 24, 21],      # 88
-    # WEEMAG
-    ["WEEMAG", 63, 28],
-    ["WEEMAG", 63, 29],
-    ["WEEMAG", 62, 30],
-    ["WEEMAG", 62, 31],
-    ["WEEMAG", 61, 32],
-    ["WEEMAG", 61, 33],
-    ["WEEMAG", 61, 34],
-    ["WEEMAG", 60, 35],
-    ["WEEMAG", 60, 36],
-    ["WEEMAG", 60, 37],
-    ["WEEMAG", 60, 38],
-    ["WEEMAG", 60, 39],
-    ["WEEMAG", 60, 40],
-    ["WEEMAG", 59, 41],
-    ["WEEMAG", 55, 42],
-    ["WEEMAG", 50, 43],
-    ["WEEMAG", 38, 45],
-    ["WEEMAG", 34, 46],
-    ["WEEMAG", 32, 47],
-    ["WEEMAG", 33, 47],
-    ["WEEMAG", 32, 49],
-    ["WEEMAG", 32, 50],
-    ["WEEMAG", 31, 52],
-    ["WEEMAG", 31, 54],
-    ["WEEMAG", 30, 56]
+    ["LUTZ2", 24, 21]      # 88
 ]
 
 #Test 1 số thực nghiệm để kiểm tra tính ổn định của code trước khi chạy hết tất cả các file
@@ -175,15 +149,15 @@ file_name1 = [
 ]
 
 TIMEOUT_LIMIT = 3600
-INPUT_FOLDER = "Peak_UB_LB"
+INPUT_FOLDER = "AVG_Peak"
 INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_E**.py"
 OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_SM_E**.csv"
 
-for i, item in enumerate(file_name1):
+for i, item in enumerate(file_name):
     family = item[0]
     param1 = str(item[1])
     
-    print(f"[{i+1}/{len(file_name1)}] Đang chạy: {family} {param1}...", end="", flush=True)
+    print(f"[{i+1}/{len(file_name)}] Đang chạy: {family} {param1}...", end="", flush=True)
     
     cmd = ["python", "-u", INPUT_FILE_NAME, family, param1]
     
