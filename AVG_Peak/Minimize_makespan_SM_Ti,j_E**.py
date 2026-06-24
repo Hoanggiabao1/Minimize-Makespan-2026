@@ -71,7 +71,7 @@ def read_input(filename):
         W = [int(line.strip()) for line in k if line.strip()]
 
 def reset(idx):
-    global n, m, val, cons, sol, solbb, type, filename, W, neighbors, reversed_neighbors, visited, toposort, clauses, time_list, adj, forward, var_map, var_counter, current_instance_id
+    global n, m, val, cons, sol, solbb, type, filename, W, neighbors, reversed_neighbors, visited, toposort, clauses, time_list, adj, forward, var_map, var_counter, current_instance_id, ran
     current_instance_id = idx
     m = idx[1]
     val = 0
@@ -89,6 +89,7 @@ def reset(idx):
     clauses = []
     time_list = []
     adj = []
+    ran = []
     forward = [0 for i in range(200)]
 
 
