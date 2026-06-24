@@ -6,16 +6,18 @@ import time
 import csv
 from docplex.cp.config import context
 
+context.solver.local.execfile = "/opt/ibm/ILOG/CPLEX_Studio_Community2212/cpoptimizer/bin/x86-64_linux/cpoptimizer"
+
 def create_assignment_model(n, m, c, model, Ex_times, W):
     X = [[model.binary_var(name=f'X_{i}_{j}') for j in range(m)] for i in range(n)]
     S = [[model.binary_var(name=f'S_{i}_{t}') for t in range(c)] for i in range(n)]
     W_sorted = sorted(W, reverse=True)
     UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) // n) * m
+    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
     LB = max(W_sorted[i] for i in range(n))
     makespan = model.integer_var(name='makespan')
-    Wmax = (UB + LB) // 2
-    return model, X, S, Wmax, makespan
+    Wmax = (AVG + LB) / 2
+    return model, X, S, int(Wmax), makespan
 
 def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
     cons = 0
@@ -89,33 +91,35 @@ def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W):
     model, X, S, Wmax, makespan = create_assignment_model(n, m, c, CpoModel(), Ex_times, W)
     print("Wmax =", Wmax)
     model, cons = add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan)
+    
+    # Cấu hình thời gian chạy tối đa (3600 giây)
     model.set_parameters(LogVerbosity="Quiet", TimeLimit=3600)
+    
     try:
+        # CP Optimizer tự động trả về nghiệm tốt nhất hiện tại nếu hết 3600 giây
         solution = model.solve()
-        return solution, n*m+n*c, cons
-    except Exception as e:
+        
+        # Kiểm tra xem solution có chứa nghiệm nào không (Feasible hoặc Optimal)
+        if solution:
+            status = solution.get_solve_status()
+            print(f"Quá trình giải kết thúc với trạng thái: {status}")
+            # Dù là FEASIBLE (chưa tối ưu hoàn toàn do timeout) hay OPTIMAL thì vẫn trả về
+            return solution, n*m+n*c, cons
+        else:
+            print("Timeout hoặc dừng nhưng không tìm được nghiệm khả thi nào.")
+            return None, n*m+n*c, cons
+            
+    except (MemoryError, Exception) as e:
+        # Bắt riêng trường hợp tràn RAM hoặc lỗi hệ thống khó tránh
+        print(f"Quá trình giải bị gián đoạn do lỗi (có thể là tràn RAM): {e}")
+        
+        # Mẹo: Đôi khi trước khi crash, CPLEX đã kịp lưu lại nghiệm cuối cùng vào object solution 
+        # (nếu python chưa bị kill hoàn toàn). Bạn có thể thử kiểm tra 'solution' cục bộ nếu cần.
         return None, n*m+n*c, cons
 
 def write_html(file_name, ans_map, n, m, c, peak, makespan):
-    with open(f"Output/{file_name}_makespan {n} {m} {c}/{file_name}_makespan {n} {m} {c}.html", "w") as f:
-        f.write("<html><head><style>")
-        f.write("table {border-collapse: collapse;}")
-        f.write("td, th {border: 1px solid black; padding: 5px; text-align: center;}")
-        f.write("</style></head><body>")
-        f.write(f"<h2>Schedule for {file_name} n = {n} m = {m} c = {c} peak = {peak} (Makespan: {makespan})</h2>")
-        f.write("<table>")
-        f.write("<tr><th>Machine</th>")
-        for i in range(makespan):
-            f.write(f"<th>Time {i + 1}</th>")
-        f.write("</tr>")
-        for j in range(m + 1):
-            machine_name = f"Machine {j+1}" if j < m else "Total Power"
-            f.write(f"<tr><td>{machine_name}</td>")
-            for i in range(makespan):
-                f.write(f"<td>{ans_map[j][i]}</td>")
-            f.write("</tr>")
-
-        f.write("</table></body></html>")
+    #skip
+    pass
 
 def input_file(file_name):
     W = []
@@ -177,14 +181,14 @@ def get_value(solution, n, m, c, W, Ex_times):
     return schedule, peak, makespan, model_makespan
 
 def write_to_csv(result):
-    with open("Output/result_cplex.csv", "a") as f:
+    with open("Peak_UB_LB/Output/result_cplex.csv", "a") as f:
         writer = csv.writer(f)
         writer.writerow(result)
 
 def optimal(filename):
     n, W, precedence_relations, Ex_times = input_file(filename[0])
     m = filename[1]  # Number of stations
-    c = filename[2]  # Increased capacity to avoid infeasibility
+    c =  max(max(Ex_times), (sum(Ex_times[i] for i in range(n)) // m)*2)
     print(f"n={n}, m={m}, c={c}")
     start_time = time.time()
     solution, var, cons = solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W)
@@ -376,5 +380,5 @@ file_name2 = [
 ]
 
 
-for i in range(2):
-    optimal(file_name2[i])
+for i in range(len(file_name)):
+    optimal(file_name[i])

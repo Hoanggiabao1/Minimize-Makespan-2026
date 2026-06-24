@@ -427,7 +427,7 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     for clause in clauses:
         solver.add_clause(clause)
 
-    model = solve(solver)
+    model = None #solve(solver)
     sol += 1
     if model is None:
         print("Initial solve timed out!")
