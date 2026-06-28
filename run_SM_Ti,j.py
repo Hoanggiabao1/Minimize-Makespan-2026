@@ -8,106 +8,89 @@ file_name = [
     ["MERTENS", 6, 6],      # 0
     ["MERTENS", 2, 18],     # 1
     ["MERTENS", 5, 7],      # 2
-    ["MERTENS", 5, 8],      # 3
-    ["MERTENS", 3, 10],     # 4
-    ["MERTENS", 2, 15],     # 5
+    ["MERTENS", 3, 10],     # 3
     # BOWMAN
-    ["BOWMAN", 5, 20],      # 6
+    ["BOWMAN", 5, 20],      # 4
     # JAESCHKE
-    ["JAESCHKE", 8, 6],     # 7
+    ["JAESCHKE", 8, 6],     # 5
+    ["JAESCHKE", 6, 8],     # 6
+    ["JAESCHKE", 4, 10],    # 7
     ["JAESCHKE", 3, 18],    # 8
-    ["JAESCHKE", 6, 8],     # 9
-    ["JAESCHKE", 4, 10],    # 10
-    ["JAESCHKE", 3, 18],    # 11
     # JACKSON
-    ["JACKSON", 8, 7],      # 12
-    ["JACKSON", 3, 21],     # 13
-    ["JACKSON", 6, 9],      # 14
-    ["JACKSON", 5, 10],     # 15
-    ["JACKSON", 4, 13],     # 16
-    ["JACKSON", 4, 14],     # 17
+    ["JACKSON", 8, 7],      # 9
+    ["JACKSON", 3, 21],     # 10
+    ["JACKSON", 6, 9],      # 11
+    ["JACKSON", 5, 10],     # 12
+    ["JACKSON", 4, 13],     # 13
     # MANSOOR
-    ["MANSOOR", 4, 48],     # 18
-    ["MANSOOR", 2, 94],     # 19
-    ["MANSOOR", 3, 62],     # 20
+    ["MANSOOR", 4, 48],     # 14
+    ["MANSOOR", 2, 94],     # 15
+    ["MANSOOR", 3, 62],     # 16
     # MITCHELL
-    ["MITCHELL", 8, 14],    # 21
-    ["MITCHELL", 3, 39],    # 22
-    ["MITCHELL", 8, 15],    # 23
-    ["MITCHELL", 5, 21],    # 24
-    ["MITCHELL", 5, 26],    # 25
-    ["MITCHELL", 3, 35],    # 26
+    ["MITCHELL", 8, 14],    # 17
+    ["MITCHELL", 3, 39],    # 18
+    ["MITCHELL", 5, 26],    # 19
     # ROSZIEG
-    ["ROSZIEG", 10, 14],    # 27
-    ["ROSZIEG", 4, 32],     # 28
-    ["ROSZIEG", 6, 25],     # 29
-    ["ROSZIEG", 8, 16],     # 30
-    ["ROSZIEG", 8, 18],     # 31
-    ["ROSZIEG", 6, 21],     # 32
+    ["ROSZIEG", 10, 14],    # 20
+    ["ROSZIEG", 4, 32],     # 21
+    ["ROSZIEG", 6, 25],     # 22
+    ["ROSZIEG", 8, 18],     # 23
     # HESKIA
-    ["HESKIA", 8, 138],     # 33
-    ["HESKIA", 3, 342],     # 34
-    ["HESKIA", 5, 205],     # 35
-    ["HESKIA", 5, 216],     # 36
-    ["HESKIA", 4, 256],     # 37
-    ["HESKIA", 4, 324],     # 38
+    ["HESKIA", 8, 138],     # 24
+    ["HESKIA", 3, 342],     # 25
+    ["HESKIA", 5, 205],     # 26
+    ["HESKIA", 4, 324],     # 27
 
     # Hard families
     # BUXEY
-    ["BUXEY", 7, 47],       # 39
-    ["BUXEY", 8, 41],       # 40
-    ["BUXEY", 11, 33],      # 41
-    ["BUXEY", 13, 27],      # 42
-    ["BUXEY", 12, 30],      # 43
-    ["BUXEY", 7, 54],       # 44
-    ["BUXEY", 10, 36],      # 45
+    ["BUXEY", 7, 47],       # 28
+    ["BUXEY", 8, 41],       # 29
+    ["BUXEY", 11, 33],      # 30
+    ["BUXEY", 13, 27],      # 31
+    ["BUXEY", 12, 30],      # 32
+    ["BUXEY", 10, 36],      # 33
     # SAWYER
-    ["SAWYER", 14, 25],     # 46
-    ["SAWYER", 7, 47],      # 47
-    ["SAWYER", 8, 41],      # 48
-    ["SAWYER", 12, 30],     # 49
-    ["SAWYER", 13, 27],     # 50
-    ["SAWYER", 11, 33],     # 51
-    ["SAWYER", 10, 36],     # 52
-    ["SAWYER", 7, 54],      # 53
-    ["SAWYER", 5, 75],      # 54
+    ["SAWYER", 14, 25],     # 34
+    ["SAWYER", 8, 41],      # 35
+    ["SAWYER", 12, 30],     # 36
+    ["SAWYER", 13, 27],     # 37
+    ["SAWYER", 11, 33],     # 38
+    ["SAWYER", 10, 36],     # 39
+    ["SAWYER", 7, 54],      # 40
+    ["SAWYER", 5, 75],      # 41
     # GUNTHER
-    ["GUNTHER", 9, 54],     # 55
-    ["GUNTHER", 9, 61],     # 56
-    ["GUNTHER", 14, 41],    # 57
-    ["GUNTHER", 12, 44],    # 58
-    ["GUNTHER", 11, 49],    # 59
-    ["GUNTHER", 8, 69],     # 60
-    ["GUNTHER", 7, 81],     # 61
+    ["GUNTHER", 9, 54],     # 42
+    ["GUNTHER", 14, 41],    # 43
+    ["GUNTHER", 12, 44],    # 44
+    ["GUNTHER", 11, 49],    # 45
+    ["GUNTHER", 8, 69],     # 46
+    ["GUNTHER", 7, 81],     # 47
     # WARNECKE
-    ["WARNECKE", 25, 65],   # 62
-    ["WARNECKE", 31, 54],   # 63
-    ["WARNECKE", 29, 56],   # 64
-    ["WARNECKE", 29, 58],   # 65
-    ["WARNECKE", 27, 60],   # 66
-    ["WARNECKE", 27, 62],   # 67
-    ["WARNECKE", 24, 68],   # 68    
-    ["WARNECKE", 23, 71],   # 69
-    ["WARNECKE", 22, 74],   # 70
-    ["WARNECKE", 21, 78],   # 71
-    ["WARNECKE", 20, 82],   # 72
-    ["WARNECKE", 19, 86],   # 73
-    ["WARNECKE", 17, 92],   # 74
-    ["WARNECKE", 17, 97],   # 75
-    ["WARNECKE", 15, 104],  # 76
-    ["WARNECKE", 14, 111],  # 77
+    ["WARNECKE", 25, 65],   # 48
+    ["WARNECKE", 31, 54],   # 49
+    ["WARNECKE", 29, 56],   # 50
+    ["WARNECKE", 27, 62],   # 51
+    ["WARNECKE", 24, 68],   # 52    
+    ["WARNECKE", 23, 71],   # 53
+    ["WARNECKE", 22, 74],   # 54
+    ["WARNECKE", 21, 78],   # 55
+    ["WARNECKE", 20, 82],   # 56
+    ["WARNECKE", 19, 86],   # 57
+    ["WARNECKE", 17, 92],   # 58
+    ["WARNECKE", 15, 104],  # 59
+    ["WARNECKE", 14, 111],  # 60
     # Lutz2
-    ["LUTZ2", 49, 11],      # 78
-    ["LUTZ2", 44, 12],      # 79
-    ["LUTZ2", 40, 13],      # 80
-    ["LUTZ2", 37, 14],      # 81
-    ["LUTZ2", 34, 15],      # 82
-    ["LUTZ2", 31, 16],      # 83
-    ["LUTZ2", 29, 17],      # 84
-    ["LUTZ2", 28, 18],      # 85
-    ["LUTZ2", 26, 19],      # 86
-    ["LUTZ2", 25, 20],      # 87
-    ["LUTZ2", 24, 21]       # 88
+    ["LUTZ2", 49, 11],      # 61
+    ["LUTZ2", 44, 12],      # 62
+    ["LUTZ2", 40, 13],      # 63
+    ["LUTZ2", 37, 14],      # 64
+    ["LUTZ2", 34, 15],      # 65
+    ["LUTZ2", 31, 16],      # 66
+    ["LUTZ2", 29, 17],      # 67
+    ["LUTZ2", 28, 18],      # 68
+    ["LUTZ2", 26, 19],      # 69
+    ["LUTZ2", 25, 20],      # 70
+    ["LUTZ2", 24, 21]       # 71
 ]
 
 #Test 1 số thực nghiệm để kiểm tra tính ổn định của code trước khi chạy hết tất cả các file

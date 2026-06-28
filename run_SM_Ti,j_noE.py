@@ -92,6 +92,7 @@ file_name = [
     ["LUTZ2", 25, 20],      # 70
     ["LUTZ2", 24, 21]       # 71
 ]
+
 #Test 1 số thực nghiệm để kiểm tra tính ổn định của code trước khi chạy hết tất cả các file
 file_name1 = [
      # Easy families 
@@ -131,9 +132,9 @@ file_name1 = [
 ]
 
 TIMEOUT_LIMIT = 3600
-INPUT_FOLDER = "Peak_UB_LB"
-INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_E**.py"
-OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_SM_E**.csv"
+INPUT_FOLDER = "AVG_Peak"
+INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_Ti,j_noE.py"
+OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_SM_Ti,j_noE.csv"
 
 for i, item in enumerate(file_name):
     family = item[0]
