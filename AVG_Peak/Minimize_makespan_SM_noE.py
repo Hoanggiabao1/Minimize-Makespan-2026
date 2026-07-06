@@ -425,7 +425,7 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
-def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM.csv"):
+def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM_noE.csv"):
     global best_result
     
     # Write to CSV

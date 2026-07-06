@@ -131,12 +131,12 @@ file_name1 = [
     ["SAWYER", 7, 93, 158]       # 16
 ]
 
-TIMEOUT_LIMIT = 3600
+TIMEOUT_LIMIT = 7200
 INPUT_FOLDER = "AVG_Peak"
 INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_Ti,j_noE.py"
 OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_SM_Ti,j_noE.csv"
 
-for i, item in enumerate(file_name):
+for i, item in enumerate(file_name[61:62]):
     family = item[0]
     param1 = str(item[1])
     
@@ -175,6 +175,6 @@ for i, item in enumerate(file_name):
     
         # Ghi vào file output
         with open(OUTPUT_FILE_NAME, "a") as f:
-            f.write(f"{family}, _, {param1}, {initial_makespan}, {last_makespan}, -, -, -, -, {status}, >3600\n")
+            f.write(f"{family}, _, {param1}, {initial_makespan}, {last_makespan}, -, -, -, -, {status}, >7200\n")
 
 print("\n=== TẤT CẢ CÁC FILE ĐÃ ĐƯỢC XỬ LÝ XONG ===")
