@@ -93,24 +93,31 @@ def reset(idx):
     forward = [0 for i in range(200)]
 
 
-def delv(i, temp):
+'''
+    E** = E + (u, v) if u in E and v in E and (u, v) not in E
+    - Nếu u là đỉnh gốc (root_i), thì append (u, k) vào adj nếu chưa có
+    - Logic cập nhật temp[i] vẫn giữ nguyên để các tầng trên có dữ liệu quy hoạch động
+'''
+def delv(i, temp, root_i=None):
     global adj, neighbors, reversed_neighbors, ran
+    if root_i is None:
+        root_i = i
     if len(temp[i]) == 0:
         return []
     if ran[i] == 1:
         return temp[i]
+        
     for j in temp[i]:
-        con = delv(j, temp)
+        con = delv(j, temp, root_i)
         if con:
             for k in con:
-                if [i, k] not in adj:
-                    adj.append([i, k])
-                    neighbors[i][k] = 1
-                    reversed_neighbors[k][i] = 1
-                    temp[i].append(k)
+                if i == root_i: 
+                    if [i, k] not in adj:
+                        adj.append([i, k])
+                        neighbors[i][k] = 1
+                        reversed_neighbors[k][i] = 1
     ran[i] = 1
     return temp[i]
-
 
 def generate_variables(n,m,c):
     global var_counter
@@ -330,11 +337,20 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                         continue
                     clauses.append([-X[i][k], -X[j][l], -get_var("SM", i, j)])
     
-    # SM[i][j] -> (A[i][t] ^ A[j][t]) cse-14c
+    # (SM[i][j] ^ S[i][t]) -> (T[j][t] V -T[j][t+time_list[j]-1]) cse-14c*
     for i in range(n-1):
         for j in range(i+1,n):
-            for t in range(c):
-                clauses.append([-get_var("SM", i, j), -A[i][t], -A[j][t]])
+            last_j = c - time_list[j]
+            for t in range(c - time_list[i] + 1):
+                max_t_index = last_j - 1
+                clause = [-get_var("SM", i, j), -S[i][t]]
+                t_left = t - time_list[j]
+                if 0 <= t_left <= max_t_index:
+                    clause.append(get_var("T", j, t_left))
+                t_right = t + time_list[i] - 1
+                if 0 <= t_right <= max_t_index:
+                    clause.append(-get_var("T", j, t_right))
+                clauses.append(clause)
 
     # cse-15-16:
     for j in range(n):
@@ -407,7 +423,6 @@ def get_value(solution, c):
                     if x[j][k] > 0 and s[j][t] > 0:
                         for l in range(time_list[j]):
                             table[k][t+l] += W[j]
-                        print(f"Task {j+1} assigned to machine {k+1} at time {t}")
                         value = max(value, t + time_list[j])
         
         table[m] = [sum(table[j][t] for j in range(m)) for t in range(c)]
@@ -435,14 +450,13 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     result = get_value(model, makespan)
     bestValue, ansmap = result
     print("New makespan:", bestValue, end="\r")
-    
+
     while (True):
-        for i in range(n):
-            if bestValue - time_list[i] - 1 < 0:
-                print("Optimal solution found.")
-                return bestValue, ansmap, var_counter, clauses, "Optimal", sol
-            solver.add_clause([get_var("T", i, bestValue - time_list[i] - 1)])
-        
+        solver.delete()
+        solver = Cadical195()
+        clauses = generate_clauses(n, m, bestValue - 1, time_list, adj, ip1, ip2, X, S, A, peak)
+        for clause in clauses:
+            solver.add_clause(clause)
         model = solve(solver)        
         sol += 1
         if model is None:
@@ -452,7 +466,7 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
-def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM.csv"):
+def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="I_SAT.csv"):
     global best_result
     
     # Write to CSV
