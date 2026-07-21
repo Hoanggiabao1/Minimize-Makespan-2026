@@ -64,9 +64,6 @@ def read_input(filename):
                     else:
                         break
                 cnt = cnt + 1
-    for i in range(n):
-        delv(i, temp)
-        
     with open('task_power/' + filename + '.txt', 'r') as k:
         W = [int(line.strip()) for line in k if line.strip()]
 
@@ -91,33 +88,6 @@ def reset(idx):
     adj = []
     ran = []
     forward = [0 for i in range(200)]
-
-'''
-    E** = E + (u, v) if u in E and v in E and (u, v) not in E
-    - Nếu u là đỉnh gốc (root_i), thì append (u, k) vào adj nếu chưa có
-    - Logic cập nhật temp[i] vẫn giữ nguyên để các tầng trên có dữ liệu quy hoạch động
-'''
-def delv(i, temp, root_i=None):
-    global adj, neighbors, reversed_neighbors, ran
-    if root_i is None:
-        root_i = i
-    if len(temp[i]) == 0:
-        return []
-    if ran[i] == 1:
-        return temp[i]
-        
-    for j in temp[i]:
-        con = delv(j, temp, root_i)
-        if con:
-            for k in con:
-                if i == root_i: 
-                    if [i, k] not in adj:
-                        adj.append([i, k])
-                        neighbors[i][k] = 1
-                        reversed_neighbors[k][i] = 1
-    ran[i] = 1
-    return temp[i]
-
 
 def generate_variables(n,m,c):
     global var_counter
@@ -340,13 +310,13 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                 if ip2[j][k][t] == 1:
                     # X[j][k] -> -S[j][t] cse-16
                     clauses.append([-X[j][k], -S[j][t]])
-
+    
     #cse-17
     for j in range(n):
         if(time_list[j] >= c/2):
             for t in range(c-time_list[j],time_list[j]):
                 clauses.append([A[j][t]])
-
+                
     # Power peak constraints
     var = var_counter + 1
     for t in range(c):
@@ -419,7 +389,7 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     for clause in clauses:
         solver.add_clause(clause)
 
-    model = solve(solver)
+    model = None
     sol += 1
     if model is None:
         print("Initial solve timed out!")
@@ -445,11 +415,11 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
-def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_E**.csv"):
+def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_binary_merger_noE.csv"):
     global best_result
     
     # Write to CSV
-    with open("AVG_Peak/Output/" + filename, "a", newline='') as f:
+    with open("Peak_UB_LB/Output/" + filename, "a", newline='') as f:
         writer = csv.writer(f)
         row = []
         row.append(ins)
@@ -470,7 +440,7 @@ def calculate_peak():
     UB = sum(W_sorted[i] for i in range(m))
     AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
     LB = max(W_sorted)
-    peak = (AVG + LB) / 2
+    peak = (UB + LB) / 2
     makespan = max(max(time_list), (sum(time_list[i] for i in range(n)) // m)*2)
     return int(peak), makespan
 

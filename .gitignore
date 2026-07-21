@@ -20,3 +20,5 @@ gurobi.log
 gcp_key
 
 gcp_key.pub
+
+output/

@@ -1,6 +1,7 @@
 import os
 import subprocess
 import re
+import time
 
 file_name = [
     # Easy families 
@@ -93,88 +94,54 @@ file_name = [
     ["LUTZ2", 24, 21]       # 71
 ]
 
-#Test 1 số thực nghiệm để kiểm tra tính ổn định của code trước khi chạy hết tất cả các file
-file_name1 = [
-     # Easy families 
-    # MERTENS 
-    ["MERTENS", 6, 10, 164],      # 0
-    ["MERTENS", 2, 29, 54],     # 1
-    # BOWMAN
-    ["BOWMAN", 5, 30, 146],      # 2
-
-    # JAESCHKE
-    ["JAESCHKE", 8, 10, 173],     # 3
-    ["JAESCHKE", 3, 25, 47],    # 4
-
-    # JACKSON
-    ["JACKSON", 8, 12, 166],      # 5
-    ["JACKSON", 3, 31, 57],     # 6
-
-    # MANSOOR
-    ["MANSOOR", 4, 93, 111],     # 7
-    ["MANSOOR", 2, 185, 71],     # 8
-
-    # MITCHELL
-    ["MITCHELL", 8, 27, 225],    # 9
-    ["MITCHELL", 3, 70, 84],    # 10
-
-    # ROSZIEG
-    ["ROSZIEG", 10, 25, 242],    # 11
-    ["ROSZIEG", 4, 63, 118],     # 12
-
-    # Hard families
-    # BUXEY
-    ["BUXEY", 7, 93, 184],       # 13
-    ["BUXEY", 14, 47, 999],      # 14
-   
-    ["SAWYER", 14, 47, 282],     # 15
-    ["SAWYER", 7, 93, 158]       # 16
-]
-
-TIMEOUT_LIMIT = 3600
-INPUT_FOLDER = "Peak_UB_LB"
-INPUT_FILE_NAME = INPUT_FOLDER + "/I_SAT.py"
-OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/I_SAT.csv"
-
-for i, item in enumerate(file_name):
-    family = item[0]
-    param1 = str(item[1])
-    
-    print(f"[{i+1}/{len(file_name)}] Đang chạy: {family} {param1}...", end="", flush=True)
-    
-    cmd = ["python", "-u", INPUT_FILE_NAME, family, param1]
-    
-    output_data = ""
-    status = "SUCCESS"
-    
+for file_info in file_name:
+    file_name = file_info[0]
+    m = file_info[1]
+    peak = file_info[3] if len(file_info) > 3 else "INF"
+    output_file = ""
+    optimal = True
+    result = ""
+    start_time = time.time()
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT_LIMIT
-        )
-        print(result.stdout)
-            
+        res = subprocess.run(["python", "-u", "Peak_UB_LB/D_SAT.py", file_name, str(m)], 
+                   timeout=3600, text=True, capture_output=True)
+        result = res.stdout
     except subprocess.TimeoutExpired as e:
-        status = "TIMEOUT"
+        result = e.stdout.decode('utf-8', errors='ignore')
+        optimal = False
     
-        # Giải mã dữ liệu từ bytes sang string (thêm .decode('utf-8', errors='ignore'))
-        captured_stdout = e.stdout.decode('utf-8', errors='ignore') if e.stdout else ""
-        captured_stderr = e.stderr.decode('utf-8', errors='ignore') if e.stderr else ""
+    end_time = time.time() - start_time
+    print("="*40)
+    print (f"Results for {file_name} with m={m}:")
+    output_lines = result.splitlines()
+    row_csv = [file_name, str(m)] + ["N/A"] * 5
+    for output_line in output_lines:
+        print (output_line)
+    for line in output_lines:
+        if "Optimal makespan" in line and optimal:
+            makespan_value = line.split()[-1]
+            row_csv[2] = makespan_value
+        elif "Better makespan" in line and not optimal:
+            makespan_value = line.split()[-1]
+            row_csv[2] = makespan_value
+        elif "Time taken" in line:
+            time_value = line.split()[-2]
+            row_csv[3] = str(end_time)
+        elif "Peak power consumption" in line:
+            peak_value = line.split()[-1]
+            row_csv[4] = peak_value
+        elif "Number of clauses" in line:
+            clauses_value = line.split()[-1]
+            row_csv[5] = clauses_value
+        elif "Number of variables" in line:
+            variables_value = line.split()[-1]
+            row_csv[6] = variables_value
         
-        # Tìm Initial makespan
-        initial_makespan_match = re.search(r"Initial makespan:\s*([+-]?\d+(?:\.\d+)?)", captured_stdout)
-        initial_makespan = initial_makespan_match.group(1) if initial_makespan_match else "N/A"
-    
-        # Tìm tất cả các New makespan xuất hiện trong stdout
-        makespan_matches = re.findall(r"New makespan:\s*([+-]?\d+(?:\.\d+)?)", captured_stdout)
-    
-        # Lấy giá trị New makespan cuối cùng tìm được trong list
-        last_makespan = makespan_matches[-1] if makespan_matches else "N/A"
-    
-        # Ghi vào file output
-        with open(OUTPUT_FILE_NAME, "a") as f:
-            f.write(f"{family}, _, {param1}, {initial_makespan}, {last_makespan}, -, -, -, -, {status}, >3600\n")
-
-print("\n=== TẤT CẢ CÁC FILE ĐÃ ĐƯỢC XỬ LÝ XONG ===")
+    # viết row vào output.csv
+    if optimal:
+        row_csv.append("Optimal")
+    else:
+        row_csv.append("TIMEOUT")
+    with open("Peak_UB_LB/Output/D_SAT.csv", "a") as f:
+        row_csv_clean = [str(x) if x is not None else "" for x in row_csv]
+        f.write(",".join(row_csv_clean) + "\n")

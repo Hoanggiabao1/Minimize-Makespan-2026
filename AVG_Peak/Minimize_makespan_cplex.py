@@ -6,7 +6,7 @@ import time
 import csv
 from docplex.cp.config import context
 
-context.solver.local.execfile = "/opt/ibm/ILOG/CPLEX_Studio_Community2212/cpoptimizer/bin/x86-64_linux/cpoptimizer"
+context.solver.local.execfile = "/opt/ibm/ILOG/CPLEX_Studio2211/cpoptimizer/bin/x86-64_linux/cpoptimizer"
 
 def create_assignment_model(n, m, c, model, Ex_times, W):
     X = [[model.binary_var(name=f'X_{i}_{j}') for j in range(m)] for i in range(n)]
@@ -378,5 +378,5 @@ file_name2 = [
 ]
 
 
-for i in range(len(file_name2)):
+for i in range(1,2,len(file_name2)):
     optimal(file_name2[i])

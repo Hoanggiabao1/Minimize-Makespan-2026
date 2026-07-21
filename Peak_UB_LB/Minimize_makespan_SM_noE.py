@@ -64,8 +64,6 @@ def read_input(filename):
                     else:
                         break
                 cnt = cnt + 1
-    for i in range(n):
-        delv(i, temp)
         
     with open('task_power/' + filename + '.txt', 'r') as k:
         W = [int(line.strip()) for line in k if line.strip()]
@@ -91,32 +89,6 @@ def reset(idx):
     adj = []
     ran = []
     forward = [0 for i in range(200)]
-
-'''
-    E** = E + (u, v) if u in E and v in E and (u, v) not in E
-    - Nếu u là đỉnh gốc (root_i), thì append (u, k) vào adj nếu chưa có
-    - Logic cập nhật temp[i] vẫn giữ nguyên để các tầng trên có dữ liệu quy hoạch động
-'''
-def delv(i, temp, root_i=None):
-    global adj, neighbors, reversed_neighbors, ran
-    if root_i is None:
-        root_i = i
-    if len(temp[i]) == 0:
-        return []
-    if ran[i] == 1:
-        return temp[i]
-        
-    for j in temp[i]:
-        con = delv(j, temp, root_i)
-        if con:
-            for k in con:
-                if i == root_i: 
-                    if [i, k] not in adj:
-                        adj.append([i, k])
-                        neighbors[i][k] = 1
-                        reversed_neighbors[k][i] = 1
-    ran[i] = 1
-    return temp[i]
 
 
 def generate_variables(n,m,c):
@@ -320,14 +292,28 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                 # Như ràng buộc trên nhưng t = last_j
                 clauses.append([-X[i][k], -X[j][k], -S[i][t], -get_var("T",j,c-time_list[j]-1)])
     
-    #(X[i][k] ^ X[j][k]) -> (A[i][t] ^ A[j][t]) cse-14
+    #(X[i][k] ^ X[j][k]) -> SM[i][j] cse-14a
+    for k in range(m):
+        for i in range(n-1):
+            for j in range(i+1,n):
+                if ip1[i][k] == 1 or ip1[j][k] == 1:
+                    continue
+                clauses.append([-X[i][k], -X[j][k], get_var("SM", i, j)])
+    
+    # (X[i][k] ^ X[j][l]) -> -SM[i][j] k khác l cse-14b
     for i in range(n-1):
         for j in range(i+1,n):
-            for k in range (m):
-                if ip1[i][k] == 1 or ip1[j][k] == 1 :
-                    continue
-                for t in range(c):
-                    clauses.append([-X[i][k], -X[j][k], -A[i][t], -A[j][t]])
+            for k in range(m):
+                for l in range(m):
+                    if ip1[i][k] == 1 or ip1[j][l] == 1 or k == l:
+                        continue
+                    clauses.append([-X[i][k], -X[j][l], -get_var("SM", i, j)])
+    
+    # SM[i][j] -> (A[i][t] ^ A[j][t]) cse-14c
+    for i in range(n-1):
+        for j in range(i+1,n):
+            for t in range(c):
+                clauses.append([-get_var("SM", i, j), -A[i][t], -A[j][t]])
 
     # cse-15-16:
     for j in range(n):
@@ -346,7 +332,7 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
         if(time_list[j] >= c/2):
             for t in range(c-time_list[j],time_list[j]):
                 clauses.append([A[j][t]])
-
+    
     # Power peak constraints
     var = var_counter + 1
     for t in range(c):
@@ -445,11 +431,11 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
-def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_E**.csv"):
+def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM_noE.csv"):
     global best_result
     
     # Write to CSV
-    with open("AVG_Peak/Output/" + filename, "a", newline='') as f:
+    with open("Peak_UB_LB/Output/" + filename, "a", newline='') as f:
         writer = csv.writer(f)
         row = []
         row.append(ins)
@@ -470,7 +456,7 @@ def calculate_peak():
     UB = sum(W_sorted[i] for i in range(m))
     AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
     LB = max(W_sorted)
-    peak = (AVG + LB) / 2
+    peak = (UB + LB) / 2
     makespan = max(max(time_list), (sum(time_list[i] for i in range(n)) // m)*2)
     return int(peak), makespan
 

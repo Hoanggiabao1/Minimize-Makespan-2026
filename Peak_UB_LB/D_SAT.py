@@ -126,8 +126,9 @@ def list_constrain(n, m, c, precedence_relations, Ex_Time, W, A, B, X, C, peak):
 
 def generate_peak(W, n, m):
     W_sorted = sorted(W, reverse=True)
+    UB = sum(W_sorted[i] for i in range(m))
     peak = sum(W_sorted[i] for i in range(n))/n
-    return (peak*m + max(W))/2
+    return (UB + max(W))/2
 
 def input_file(file_name):
     W = []

@@ -92,6 +92,7 @@ def reset(idx):
     ran = []
     forward = [0 for i in range(200)]
 
+
 '''
     E** = E + (u, v) if u in E and v in E and (u, v) not in E
     - Nếu u là đỉnh gốc (root_i), thì append (u, k) vào adj nếu chưa có
@@ -117,7 +118,6 @@ def delv(i, temp, root_i=None):
                         reversed_neighbors[k][i] = 1
     ran[i] = 1
     return temp[i]
-
 
 def generate_variables(n,m,c):
     global var_counter
@@ -320,14 +320,37 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                 # Như ràng buộc trên nhưng t = last_j
                 clauses.append([-X[i][k], -X[j][k], -S[i][t], -get_var("T",j,c-time_list[j]-1)])
     
-    #(X[i][k] ^ X[j][k]) -> (A[i][t] ^ A[j][t]) cse-14
+    #(X[i][k] ^ X[j][k]) -> SM[i][j] cse-14a
+    for k in range(m):
+        for i in range(n-1):
+            for j in range(i+1,n):
+                if ip1[i][k] == 1 or ip1[j][k] == 1:
+                    continue
+                clauses.append([-X[i][k], -X[j][k], get_var("SM", i, j)])
+    
+    # (X[i][k] ^ X[j][l]) -> -SM[i][j] k khác l cse-14b
     for i in range(n-1):
         for j in range(i+1,n):
-            for k in range (m):
-                if ip1[i][k] == 1 or ip1[j][k] == 1 :
-                    continue
-                for t in range(c):
-                    clauses.append([-X[i][k], -X[j][k], -A[i][t], -A[j][t]])
+            for k in range(m):
+                for l in range(m):
+                    if ip1[i][k] == 1 or ip1[j][l] == 1 or k == l:
+                        continue
+                    clauses.append([-X[i][k], -X[j][l], -get_var("SM", i, j)])
+    
+    # (SM[i][j] ^ S[i][t]) -> (T[j][t] V -T[j][t+time_list[j]-1]) cse-14c*
+    for i in range(n-1):
+        for j in range(i+1,n):
+            last_j = c - time_list[j]
+            for t in range(c - time_list[i] + 1):
+                max_t_index = last_j - 1
+                clause = [-get_var("SM", i, j), -S[i][t]]
+                t_left = t - time_list[j]
+                if 0 <= t_left <= max_t_index:
+                    clause.append(get_var("T", j, t_left))
+                t_right = t + time_list[i] - 1
+                if 0 <= t_right <= max_t_index:
+                    clause.append(-get_var("T", j, t_right))
+                clauses.append(clause)
 
     # cse-15-16:
     for j in range(n):
@@ -340,7 +363,7 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                 if ip2[j][k][t] == 1:
                     # X[j][k] -> -S[j][t] cse-16
                     clauses.append([-X[j][k], -S[j][t]])
-
+    
     #cse-17
     for j in range(n):
         if(time_list[j] >= c/2):
@@ -400,7 +423,6 @@ def get_value(solution, c):
                     if x[j][k] > 0 and s[j][t] > 0:
                         for l in range(time_list[j]):
                             table[k][t+l] += W[j]
-                        print(f"Task {j+1} assigned to machine {k+1} at time {t}")
                         value = max(value, t + time_list[j])
         
         table[m] = [sum(table[j][t] for j in range(m)) for t in range(c)]
@@ -428,14 +450,13 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     result = get_value(model, makespan)
     bestValue, ansmap = result
     print("New makespan:", bestValue, end="\r")
-    
+
     while (True):
-        for i in range(n):
-            if bestValue - time_list[i] - 1 < 0:
-                print("Optimal solution found.")
-                return bestValue, ansmap, var_counter, clauses, "Optimal", sol
-            solver.add_clause([get_var("T", i, bestValue - time_list[i] - 1)])
-        
+        solver.delete()
+        solver = Cadical195()
+        clauses = generate_clauses(n, m, bestValue - 1, time_list, adj, ip1, ip2, X, S, A, peak)
+        for clause in clauses:
+            solver.add_clause(clause)
         model = solve(solver)        
         sol += 1
         if model is None:
@@ -445,11 +466,11 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
-def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_E**.csv"):
+def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="I_SAT.csv"):
     global best_result
     
     # Write to CSV
-    with open("AVG_Peak/Output/" + filename, "a", newline='') as f:
+    with open("Peak_UB_LB/Output/" + filename, "a", newline='') as f:
         writer = csv.writer(f)
         row = []
         row.append(ins)
@@ -470,7 +491,7 @@ def calculate_peak():
     UB = sum(W_sorted[i] for i in range(m))
     AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
     LB = max(W_sorted)
-    peak = (AVG + LB) / 2
+    peak = (UB + LB) / 2
     makespan = max(max(time_list), (sum(time_list[i] for i in range(n)) // m)*2)
     return int(peak), makespan
 

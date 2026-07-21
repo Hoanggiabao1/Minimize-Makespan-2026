@@ -132,7 +132,7 @@ file_name1 = [
 ]
 
 TIMEOUT_LIMIT = 3600
-INPUT_FOLDER = "AVG_Peak"
+INPUT_FOLDER = "Peak_UB_LB"
 INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_origin_noE.py"
 OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_binary_merger_noE.csv"
 
