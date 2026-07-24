@@ -20,7 +20,7 @@ def create_assignment_model(n, m, c, model, Ex_times, W):
     
     # Biến liên tục hoặc nguyên cho mục tiêu makespan
     makespan = model.integer_var(name='makespan')
-    Wmax = (AVG + LB) / 2
+    Wmax = (UB + LB) / 2
     return model, X, S, int(Wmax), makespan
 
 def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
@@ -163,7 +163,7 @@ def input_file(file_name):
     return n, W, precedence_relations, Ex_Time
 
 def write_to_csv(result):
-    with open("AVG_Peak/Output/result_cplex_mip.csv", "a") as f:
+    with open("Peak_UB_LB/Output/result_cplex_mip.csv", "a") as f:
         writer = csv.writer(f)
         writer.writerow(result)
 

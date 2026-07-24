@@ -94,45 +94,93 @@ file_name = [
 ]
 
 #Test 1 số thực nghiệm để kiểm tra tính ổn định của code trước khi chạy hết tất cả các file
-file_name1 = [
-     # Easy families 
-    # MERTENS 
-    ["MERTENS", 6, 10, 164],      # 0
-    ["MERTENS", 2, 29, 54],     # 1
-    # BOWMAN
-    ["BOWMAN", 5, 30, 146],      # 2
+file_name = [
+    # Buxey
+    ["Buxey", 7, 47],      # 0
+    ["Buxey", 8, 41],      # 1
+    ["Buxey", 9, 37],      # 2
+    ["Buxey", 10, 34],     # 3
+    ["Buxey", 11, 32],     # 4
+    ["Buxey", 12, 28],     # 5
+    ["Buxey", 13, 27],     # 6
+    ["Buxey", 14, 25],     # 7
 
-    # JAESCHKE
-    ["JAESCHKE", 8, 10, 173],     # 3
-    ["JAESCHKE", 3, 25, 47],    # 4
+    # Gunther
+    ["Gunther", 6, 84],    # 8
+    ["Gunther", 7, 72],    # 9
+    ["Gunther", 8, 63],    # 10
+    ["Gunther", 9, 54],    # 11
+    ["Gunther", 10, 50],   # 12
+    ["Gunther", 11, 48],   # 13
+    ["Gunther", 12, 44],   # 14
+    ["Gunther", 13, 42],   # 15
+    ["Gunther", 14, 40],   # 16
+    ["Gunther", 15, 40],   # 17
 
-    # JACKSON
-    ["JACKSON", 8, 12, 166],      # 5
-    ["JACKSON", 3, 31, 57],     # 6
+    # Sawyer
+    ["Sawyer", 7, 47],    # 18
+    ["Sawyer", 8, 41],    # 19
+    ["Sawyer", 9, 37],    # 20
+    ["Sawyer", 10, 34],   # 21
+    ["Sawyer", 11, 31],   # 22
+    ["Sawyer", 12, 28],   # 23
+    ["Sawyer", 13, 26],   # 24
+    ["Sawyer", 14, 25],   # 25
 
-    # MANSOOR
-    ["MANSOOR", 4, 93, 111],     # 7
-    ["MANSOOR", 2, 185, 71],     # 8
+    # Warnecke
+    ["Warnecke", 3, 516],   # 26
+    ["Warnecke", 4, 387],   # 27
+    ["Warnecke", 5, 310],   # 28
+    ["Warnecke", 6, 258],   # 29
+    ["Warnecke", 7, 222],   # 30
+    ["Warnecke", 8, 194],   # 31
+    ["Warnecke", 9, 172],   # 32
+    ["Warnecke", 10, 155],  # 33
+    ["Warnecke", 11, 142],  # 34
+    ["Warnecke", 12, 130],  # 35
+    ["Warnecke", 13, 120],  # 36
+    ["Warnecke", 14, 111],  # 37
+    ["Warnecke", 15, 104],  # 38
+    ["Warnecke", 16, 98],   # 39
+    ["Warnecke", 17, 92],   # 40
+    ["Warnecke", 18, 87],   # 41
+    ["Warnecke", 19, 84],   # 42
+    ["Warnecke", 20, 79],   # 43
+    ["Warnecke", 21, 76],   # 44
+    ["Warnecke", 22, 73],   # 45
+    ["Warnecke", 23, 69],   # 46
+    ["Warnecke", 24, 66],   # 47
+    ["Warnecke", 25, 64],   # 48
+    ["Warnecke", 26, 64],   # 49
+    ["Warnecke", 27, 60],   # 50
+    ["Warnecke", 28, 59],   # 51
+    ["Warnecke", 29, 56],   # 52
 
-    # MITCHELL
-    ["MITCHELL", 8, 27, 225],    # 9
-    ["MITCHELL", 3, 70, 84],    # 10
-
-    # ROSZIEG
-    ["ROSZIEG", 10, 25, 242],    # 11
-    ["ROSZIEG", 4, 63, 118],     # 12
-
-    # Hard families
-    # BUXEY
-    ["BUXEY", 7, 93, 184],       # 13
-    ["BUXEY", 14, 47, 999],      # 14
-   
-    ["SAWYER", 14, 47, 282],     # 15
-    ["SAWYER", 7, 93, 158]       # 16
+    # Lutz2
+    ["Lutz2", 9, 54],      # 53
+    ["Lutz2", 10, 49],     # 54
+    ["Lutz2", 11, 45],     # 55
+    ["Lutz2", 12, 41],     # 56
+    ["Lutz2", 13, 38],     # 57
+    ["Lutz2", 14, 35],     # 58
+    ["Lutz2", 15, 33],     # 59
+    ["Lutz2", 16, 31],     # 60
+    ["Lutz2", 17, 29],     # 61
+    ["Lutz2", 18, 28],     # 62
+    ["Lutz2", 19, 26],     # 63
+    ["Lutz2", 20, 25],     # 64
+    ["Lutz2", 21, 24],     # 65
+    ["Lutz2", 22, 23],     # 66
+    ["Lutz2", 23, 22],     # 67
+    ["Lutz2", 24, 21],     # 68
+    ["Lutz2", 25, 20],     # 69
+    ["Lutz2", 26, 19],     # 70
+    ["Lutz2", 27, 19],     # 71
+    ["Lutz2", 28, 18],     # 72
 ]
 
 TIMEOUT_LIMIT = 3600
-INPUT_FOLDER = "AVG_Peak"
+INPUT_FOLDER = "Peak_UB_LB"
 INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_Ti,j_E**.py"
 OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_SM_Ti,j_E**.csv"
 
