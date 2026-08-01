@@ -126,59 +126,43 @@ load.  For an `Optimal` row it can additionally require an UNSAT record at
 CP Optimizer and CPLEX-MIP remain separate solver identifiers and output files;
 do not merge their result columns.
 
-## Run the SAT campaign on Google Cloud
+## Run the SAT campaign in the existing VM environment
 
-`scripts/gcp_experiment.sh` provisions one standard (non-Spot)
-`c4-highcpu-8` VM, uploads the current source tree, starts the experiment as a
-systemd service, validates the witnesses and proof records, downloads a
-checksummed artifact, and deletes the VM after a successful collection.  The
-service continues if the controlling SSH session disconnects.
+The campaign runner deliberately does not provision a VM, install packages, or
+create a virtual environment.  Run it from the repository checkout that uses
+the already validated solver and license environment.  It records the Python
+environment and host metadata, validates all witnessed schedules and optimality
+records, then produces a checksummed result archive.
 
-The defaults reproduce the locked system profile: 8 vCPUs, 16 GB memory,
-Ubuntu 20.04 and a 3,600-second cutoff.  Google now classifies the base Ubuntu
-20.04 image as end-of-life, so the script uses the supported Ubuntu Pro 20.04
-image family with ESM.  C4 requires gVNIC and Hyperdisk; both are selected
-explicitly.  The default zone is `us-west4-a` and can be overridden.
-
-Run the preflight plan from Google Cloud Shell or another machine with the
-Google Cloud CLI:
+For the locked primary matrix (72 configurations, two caps, three SAT
+encodings, direct arcs), run on the VM:
 
 ```bash
-PROJECT_ID=my-project ./scripts/gcp_experiment.sh plan
+cd /path/to/Minimize-Makespan-2026
+PYTHON_BIN=/path/to/existing/environment/bin/python \
+RESULT_DIR=/path/to/results/two-phase-$(date -u +%Y%m%dT%H%M%SZ) \
+./scripts/run_existing_vm.sh
 ```
 
-Submit the default 432-run primary SAT matrix (72 configurations, two caps,
-three encodings, direct arcs):
+`PYTHON_BIN` defaults to `python3`.  `RESULT_DIR` defaults to
+`../results/gcp/<run-id>/` relative to the repository.  The run directory
+contains the normalized CSV, event log, witness files, validation log, manifest,
+input hashes, host/Python metadata, and `completion.env`.  Its parent directory
+receives `salbp-results-<run-id>.tar.gz` and a SHA-256 checksum.
+
+First verify the setup with one small configuration:
 
 ```bash
-PROJECT_ID=my-project ./scripts/gcp_experiment.sh submit
-./scripts/gcp_experiment.sh status
-FOLLOW=1 ./scripts/gcp_experiment.sh logs
-./scripts/gcp_experiment.sh wait
-./scripts/gcp_experiment.sh collect
-./scripts/gcp_experiment.sh delete
+PYTHON_BIN=/path/to/existing/environment/bin/python \
+RUN_ID=smoke-$(date -u +%Y%m%dT%H%M%SZ) \
+RESULT_DIR=/path/to/results/smoke \
+INSTANCES=MERTENS:6 SOLVERS=sm THRESHOLDS=peak_ub_lb EDGE_SETS=E \
+TIMEOUT_SECONDS=30 PRIMAL_CONFLICT_BUDGET=5000 \
+./scripts/run_existing_vm.sh
 ```
 
-For a single end-to-end command:
-
-```bash
-PROJECT_ID=my-project ./scripts/gcp_experiment.sh run
-```
-
-The full `E/E*` campaign contains 864 sequential runs and can require roughly
-864 VM-hours plus setup overhead when every run reaches its cutoff:
-
-```bash
-PROJECT_ID=my-project EDGE_SETS='E,E*' ./scripts/gcp_experiment.sh plan
-PROJECT_ID=my-project EDGE_SETS='E,E*' ./scripts/gcp_experiment.sh submit
-```
-
-Use `INSTANCES=smoke` and a smaller `TIMEOUT_SECONDS` for infrastructure tests.
 The scientific campaign must retain `TIMEOUT_SECONDS=3600`,
 `PRIMAL_CONFLICT_BUDGET=50000`, default SAT threading, and the solver-default
-seed policy.  Keep `ENABLE_CSE17=0` for the locked paper matrix.  Local state
-is written under `.gcp-experiment/`; downloaded
-artifacts go to `../results/gcp/<run-id>/` by default.  A failed validation
-keeps the VM for inspection instead of deleting evidence automatically.
-`submit` also requires a clean Git worktree so the commit and uploaded archive
-identify the same source.  `ALLOW_DIRTY=1` exists only for infrastructure tests.
+seed policy.  Keep `ENABLE_CSE17=0` for the locked paper matrix.  To cover the
+reported closure sensitivity, set `EDGE_SETS='E,E*'`; this doubles the primary
+SAT matrix to 864 sequential runs.
