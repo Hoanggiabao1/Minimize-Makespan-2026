@@ -1,7 +1,7 @@
 import os
 import csv
-import math
 import time
+import sys
 import gurobipy
 from gurobipy import GRB
 from dotenv import load_dotenv
@@ -26,17 +26,34 @@ env.setParam('WLSSECRET', wls_secret)
 env.setParam('LICENSEID', int(license_id))
 env.start()
 
+def calculate_qmax(W, m):
+    return (m * sum(W) + len(W) * max(W)) // (2 * len(W))
+
 def create_assignment_model(n, m, c, model, Ex_times, W):
     X = [[model.addVar(vtype=gurobipy.GRB.BINARY, name=f'X_{i}_{j}') for j in range(m)] for i in range(n)]
-    S = [[model.addVar(vtype=gurobipy.GRB.BINARY, name=f'S_{i}_{t}') for t in range(c)] for i in range(n)]
-    W_sorted = sorted(W, reverse=True)
-    UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
-    LB = max(W_sorted[i] for i in range(n))
+    S = [
+        [model.addVar(vtype=gurobipy.GRB.BINARY, name=f'S_{i}_{t}')
+         for t in range(max(0, c - Ex_times[i] + 1))]
+        for i in range(n)
+    ]
     makespan = model.addVar(vtype=gurobipy.GRB.INTEGER, name="makespan")
-    Wmax = (AVG + LB) / 2
+    Wmax = calculate_qmax(W, m)
     model.update()
-    return model, X, S, int(Wmax), makespan
+    return model, X, S, Wmax, makespan
+
+def solver_status(model):
+    if model.Status == GRB.OPTIMAL:
+        return "Optimal"
+    if model.Status == GRB.TIME_LIMIT:
+        return "TIMEOUT"
+    if model.Status == GRB.INFEASIBLE:
+        return "Infeasible"
+    if model.Status == GRB.INF_OR_UNBD:
+        # Completion-time constraints bound this model below.
+        return "Infeasible"
+    if model.Status == getattr(GRB, "MEM_LIMIT", -1):
+        return "OOM"
+    return f"STATUS_{model.Status}"
 
 def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
     cons = 0
@@ -62,7 +79,7 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
 
     # (5) Each task assigned to exactly one start time
     for j in range(n):
-        model.addConstr(gurobipy.quicksum(S[j][t] for t in range(c - Ex_times[j] + 1)) == 1)
+        model.addConstr(gurobipy.quicksum(S[j]) == 1)
         cons += 1
 
     # (6) Precedence time window constraint
@@ -70,7 +87,7 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
         if i > 0 and j > 0:
             for k in range(m):
                 for t in range(c - Ex_times[j-1] + 1):
-                    tau_range = range(t - Ex_times[i-1] + 1)
+                    tau_range = range(max(0, t - Ex_times[i-1] + 1))
                     model.addConstr(
                         S[j-1][t] <= gurobipy.quicksum(S[i-1][tau] for tau in tau_range) + 2 - X[i-1][k] - X[j-1][k]
                     )
@@ -81,10 +98,12 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
         for j in range(i + 1, n):
             for k in range(m):
                 for t in range(c):
+                    starts_i = range(max(0, t - Ex_times[i] + 1), min(t, len(S[i]) - 1) + 1)
+                    starts_j = range(max(0, t - Ex_times[j] + 1), min(t, len(S[j]) - 1) + 1)
                     model.addConstr(
                         X[i][k] + X[j][k] +
-                        gurobipy.quicksum(S[i][tau] for tau in range(t - Ex_times[i] + 1, t + 1)) +
-                        gurobipy.quicksum(S[j][tau] for tau in range(t - Ex_times[j] + 1, t + 1))
+                        gurobipy.quicksum(S[i][tau] for tau in starts_i) +
+                        gurobipy.quicksum(S[j][tau] for tau in starts_j)
                         <= 3
                     )
                     cons += 1
@@ -93,7 +112,10 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
     for t in range(c):
         model.addConstr(
             gurobipy.quicksum([
-                W[j] * gurobipy.quicksum([S[j][s] for s in range(t - Ex_times[j] + 1, t + 1)])
+                W[j] * gurobipy.quicksum(
+                    S[j][s]
+                    for s in range(max(0, t - Ex_times[j] + 1), min(t, len(S[j]) - 1) + 1)
+                )
                 for j in range(n)
             ]) <= Wmax
         )
@@ -101,23 +123,22 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
 
     # (10) Makespan definition
     for i in range(n):
-        model.addConstr(makespan >= gurobipy.quicksum(k * S[i][k] for k in range(c - Ex_times[i] + 1)) + Ex_times[i])
+        model.addConstr(makespan >= gurobipy.quicksum(k * S[i][k] for k in range(len(S[i]))) + Ex_times[i])
         cons += 1
     return model, cons
 
-def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W):
+def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W, time_limit=3600):
     # Khởi tạo model dựa trên đối tượng env đã được cấu hình từ .env trước đó
     model, X, S, Wmax, makespan = create_assignment_model(n, m, c, gurobipy.Model(env=env), Ex_times, W)
     model, cons = add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan)
     
     # Cấu hình các tham số chạy giải thuật
-    model.Params.TimeLimit = 3600
-    model.Params.MemLimit = 4096      # Giới hạn bộ nhớ 4GB
-    model.Params.SoftMemLimit = 8192  
+    model.Params.TimeLimit = max(0.001, time_limit)
+    model.Params.SoftMemLimit = 4  # Gurobi measures this parameter in GB.
     model.Params.LogToConsole = 1     # ĐẶT BẰNG 1 để script ngoài bắt được log "New makespan:" theo thời gian thực
     
     model.optimize()
-    return model, n*m + n*c, cons
+    return model, n * m + sum(max(0, c - p + 1) for p in Ex_times) + 1, cons
 
 def input_file(file_name):
     W = []  
@@ -151,7 +172,7 @@ def input_file(file_name):
 
 def get_value(solution, n, m, c, W, Ex_times):
     X_values = [[0 for _ in range(m)] for _ in range(n)]
-    S_values = [[0 for _ in range(c)] for _ in range(n)]
+    S_values = [[0 for _ in range(max(0, c - Ex_times[i] + 1))] for i in range(n)]
 
     for i in range(n):
         for k in range(m):
@@ -159,27 +180,27 @@ def get_value(solution, n, m, c, W, Ex_times):
             X_values[i][k] = solution.getVarByName(var_name).X
 
     for i in range(n):
-        for t in range(c):
+        for t in range(len(S_values[i])):
             var_name = f"S_{i}_{t}"
             S_values[i][t] = solution.getVarByName(var_name).X
 
     schedule = [[0 for _ in range(c)] for _ in range(m + 1)]
-
-    for k in range(m):
-        for j in range(n):
-            for t in range(c):
-                for t0 in range(Ex_times[j]):
-                    if X_values[j][k] == 1 and t - t0 >= 0 and S_values[j][t - t0] == 1:
-                        schedule[k][t] = W[j]
+    for task in range(n):
+        station = next(k for k in range(m) if X_values[task][k] > 0.5)
+        start = next(t for t, value in enumerate(S_values[task]) if value > 0.5)
+        print(f"Task {task + 1} assigned to machine {station + 1} at time {start}")
+        for t in range(start, start + Ex_times[task]):
+            schedule[station][t] = W[task]
 
     schedule[m] = [sum(schedule[j][t] for j in range(m)) for t in range(c)]
     peak = max(schedule[m])
-    makespan = solution.getVarByName("makespan").X
+    makespan = int(round(solution.getVarByName("makespan").X))
     for line in schedule:
-        print(line[:math.ceil(makespan)])
+        print(line[:makespan])
     return schedule, makespan, peak
 
 def write_to_csv(result):
+    os.makedirs("AVG_Peak/Output", exist_ok=True)
     with open("AVG_Peak/Output/result_gurobi.csv", "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(result)
@@ -187,28 +208,54 @@ def write_to_csv(result):
 def optimal(filename):
     n, W, precedence_relations, Ex_times = input_file(filename[0])
     m = filename[1]  # Number of stations
-    c = filename[2]  # Increased capacity to avoid infeasibility
-    print(f"n={n}, m={m}, c={c}")
+    initial_c = filename[2]
+    c = max(initial_c, max(Ex_times))
+    safe_horizon = sum(Ex_times)
     start_time = time.time()
-    
-    solution, var, cons = solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W)
+    solution = None
+    var = cons = 0
+    status = "TIMEOUT"
+    while time.time() - start_time < 3600:
+        print(f"n={n}, m={m}, c={c}")
+        remaining = 3600 - (time.time() - start_time)
+        solution, var, cons = solve_assignment_problem(
+            n, m, c, Ex_times, precedence_relations, W, remaining
+        )
+        status = solver_status(solution)
+        if status == "Infeasible" and c < safe_horizon:
+            solution.dispose()
+            solution = None
+            c = min(safe_horizon, max(c + 1, (3 * c + 1) // 2))
+            print("Expanding horizon to:", c)
+            continue
+        break
     end_time = time.time()
     elapsed_time = end_time - start_time
+    if solution is None and status == "Infeasible":
+        status = "TIMEOUT"
     print("Time taken:", elapsed_time)
     
     # Kiểm tra xem có tìm thấy lời giải hợp lệ (nghiệm khả thi) hay không
-    if solution.SolCount > 0:
+    if solution is not None and solution.SolCount > 0:
         schedule, makespan, peak = get_value(solution, n, m, c, W, Ex_times)
+        best_bound = solution.ObjBound
+        gap = solution.MIPGap
         print("Peak =", peak)
-        # Ép print cú pháp này để file điều khiển cha (Subprocess) bắt trọn được kể cả khi timeout giữa chừng
-        print(f"New makespan: {makespan}")
-        write_to_csv([filename[0], n, m, c, makespan, var, cons, elapsed_time])
+        print(f"Status: {status}")
+        print(f"Best bound: {best_bound}")
+        if status == "Optimal":
+            print(f"Optimal makespan: {makespan}")
+        else:
+            print(f"New makespan: {makespan}")
+        write_to_csv([filename[0], n, m, initial_c, makespan, var, cons, elapsed_time, status, calculate_qmax(W, m), gap])
     else:
+        print(f"Status: {status}")
         print("No solution found.")
-        write_to_csv([filename[0], n, m, c, "Timeout/Infeasible", var, cons, elapsed_time])
+        write_to_csv([filename[0], n, m, initial_c, "", var, cons, elapsed_time, status, calculate_qmax(W, m), ""])
         
     # QUAN TRỌNG: Giải phóng bộ nhớ của model hiện tại để tránh tích tụ làm tràn RAM
-    solution.dispose()
+    if solution is not None:
+        solution.dispose()
 
 file_name2 = [
     # Easy families 
@@ -232,5 +279,9 @@ file_name2 = [
     ["SAWYER", 7, 93, 158]       # 16
 ]
 
-for i in range(len(file_name2)):
-    optimal(file_name2[i])
+if __name__ == "__main__":
+    if len(sys.argv) == 4:
+        optimal([sys.argv[1], int(sys.argv[2]), int(sys.argv[3])])
+    else:
+        for item in file_name2:
+            optimal(item)

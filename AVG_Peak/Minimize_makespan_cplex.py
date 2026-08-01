@@ -1,4 +1,5 @@
-import math
+import os
+import sys
 
 import docplex.cp
 from docplex.cp.model import CpoModel
@@ -6,18 +7,49 @@ import time
 import csv
 from docplex.cp.config import context
 
-context.solver.local.execfile = "/opt/ibm/ILOG/CPLEX_Studio2211/cpoptimizer/bin/x86-64_linux/cpoptimizer"
+cpo_execfile = os.getenv("CPO_EXECFILE")
+if cpo_execfile:
+    context.solver.local.execfile = cpo_execfile
+
+def calculate_qmax(W, m):
+    return (m * sum(W) + len(W) * max(W)) // (2 * len(W))
 
 def create_assignment_model(n, m, c, model, Ex_times, W):
     X = [[model.binary_var(name=f'X_{i}_{j}') for j in range(m)] for i in range(n)]
-    S = [[model.binary_var(name=f'S_{i}_{t}') for t in range(c)] for i in range(n)]
-    W_sorted = sorted(W, reverse=True)
-    UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
-    LB = max(W_sorted[i] for i in range(n))
+    S = [
+        [model.binary_var(name=f'S_{i}_{t}') for t in range(max(0, c - Ex_times[i] + 1))]
+        for i in range(n)
+    ]
     makespan = model.integer_var(name='makespan')
-    Wmax = (AVG + LB) / 2
-    return model, X, S, int(Wmax), makespan
+    return model, X, S, calculate_qmax(W, m), makespan
+
+def solver_status(solution):
+    if solution is None:
+        return "FAILED"
+    raw_status = str(solution.get_solve_status()).upper()
+    if "OPTIMAL" in raw_status:
+        return "Optimal"
+    if "INFEASIBLE" in raw_status:
+        return "Infeasible"
+    if "FEASIBLE" in raw_status or "UNKNOWN" in raw_status:
+        return "TIMEOUT"
+    if "FAIL" in raw_status or "ABORT" in raw_status:
+        return "FAILED"
+    return raw_status or "UNKNOWN"
+
+def objective_bound(solution):
+    try:
+        bounds = solution.get_objective_bounds()
+        return float(bounds[0]) if bounds else None
+    except (AttributeError, IndexError, TypeError, ValueError):
+        return None
+
+def objective_gap(solution):
+    try:
+        gaps = solution.get_objective_gaps()
+        return float(gaps[0]) if gaps else None
+    except (AttributeError, IndexError, TypeError, ValueError):
+        return None
 
 def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
     cons = 0
@@ -42,7 +74,7 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
 
     # (5) Each task assigned to exactly one start time
     for j in range(n):
-        model.add_constraint(model.sum([S[j][t] for t in range(c - Ex_times[j] + 1)]) == 1)
+        model.add_constraint(model.sum(S[j]) == 1)
         cons += 1
 
     # (6) S[j,t] ≤ sum_{τ=t-ti}^{t} S[i,τ] + 2 - X[i,k] - X[j,k]
@@ -50,7 +82,7 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
         if i > 0 and j > 0:
             for k in range(m):
                 for t in range(c - Ex_times[j-1] + 1):
-                    tau_range = range(t - Ex_times[i-1] + 1)
+                    tau_range = range(max(0, t - Ex_times[i-1] + 1))
                     model.add_constraint(
                         S[j-1][t] <= model.sum([S[i-1][tau] for tau in tau_range]) + 2 - X[i-1][k] - X[j-1][k]
                     )
@@ -61,10 +93,12 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
         for j in range(i + 1, n):
             for k in range(m):
                 for t in range(c):
+                    starts_i = range(max(0, t - Ex_times[i] + 1), min(t, len(S[i]) - 1) + 1)
+                    starts_j = range(max(0, t - Ex_times[j] + 1), min(t, len(S[j]) - 1) + 1)
                     model.add_constraint(
                         X[i][k] + X[j][k] +
-                        model.sum([S[i][tau] for tau in  range(t - Ex_times[i] + 1, t + 1)]) +
-                        model.sum([S[j][tau] for tau in  range(t - Ex_times[j] + 1, t + 1)])
+                        model.sum([S[i][tau] for tau in starts_i]) +
+                        model.sum([S[j][tau] for tau in starts_j])
                         <= 3
                     )
                     cons += 1
@@ -73,7 +107,10 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
     for t in range(c):
         model.add_constraint(
             model.sum([
-                W[j] * model.sum([S[j][s] for s in range(t - Ex_times[j] + 1, t + 1)])
+                W[j] * model.sum([
+                    S[j][s]
+                    for s in range(max(0, t - Ex_times[j] + 1), min(t, len(S[j]) - 1) + 1)
+                ])
                 for j in range(n)
             ]) <= Wmax
         )
@@ -83,20 +120,21 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
 
     # (10) Makespan definition
     for j in range(n):
-        model.add_constraint(makespan >= model.sum([S[j][t] * t for t in range(c - Ex_times[j] + 1)])  + Ex_times[j])
+        model.add_constraint(makespan >= model.sum([S[j][t] * t for t in range(len(S[j]))]) + Ex_times[j])
         cons += 1
     return model, cons
 
-def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W):
+def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W, time_limit=3600):
     model, X, S, Wmax, makespan = create_assignment_model(n, m, c, CpoModel(), Ex_times, W)
     print("Wmax =", Wmax)
     model, cons = add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan)
-    model.set_parameters(LogVerbosity="Quiet", TimeLimit=3600)
+    model.set_parameters(LogVerbosity="Quiet", TimeLimit=max(1, time_limit))
     try:
         solution = model.solve()
-        return solution, n*m+n*c, cons
-    except Exception as e:
-        return None, n*m+n*c, cons
+        return solution, n * m + sum(len(row) for row in S) + 1, cons
+    except Exception as exc:
+        print(f"CP Optimizer error: {exc}")
+        return None, n * m + sum(len(row) for row in S) + 1, cons
 
 def write_html(file_name, ans_map, n, m, c, peak, makespan):
     with open(f"AVG_Peak/Output/{file_name}_makespan {n} {m} {c}/{file_name}_makespan {n} {m} {c}.html", "w") as f:
@@ -149,7 +187,7 @@ def input_file(file_name):
 def get_value(solution, n, m, c, W, Ex_times):
     # From solution take X and S return matrix of scheduled tasks
     X_values = [[0 for _ in range(m)] for _ in range(n)]
-    S_values = [[0 for _ in range(c)] for _ in range(n)]
+    S_values = [[0 for _ in range(max(0, c - Ex_times[i] + 1))] for i in range(n)]
 
     for i in range(n):
         for k in range(m):
@@ -157,28 +195,26 @@ def get_value(solution, n, m, c, W, Ex_times):
             X_values[i][k] = solution.get_value(var_name)
 
     for i in range(n):
-        for t in range(c):
+        for t in range(len(S_values[i])):
             var_name = f"S_{i}_{t}"
             S_values[i][t] = solution.get_value(var_name)
 
     schedule = [[0 for _ in range(c)] for _ in range(m +1)]
-    makespan = 0
-
-    for k in range(m):
-        for j in range(n):
-            for t in range(c):
-                for t0 in range(Ex_times[j]):
-                    if X_values[j][k] == 1 and S_values[j][t - t0] == 1:
-                        schedule[k][t] = W[j]
-                        makespan = max(makespan, t + 1)
+    for task in range(n):
+        station = next(k for k in range(m) if X_values[task][k] > 0.5)
+        start = next(t for t, value in enumerate(S_values[task]) if value > 0.5)
+        print(f"Task {task + 1} assigned to machine {station + 1} at time {start}")
+        for t in range(start, start + Ex_times[task]):
+            schedule[station][t] = W[task]
 
     #Last row = sum(schedule[j][t] for j in range(n))
     schedule[m] = [sum(schedule[j][t] for j in range(m)) for t in range(c)]
     peak = max(schedule[m])
-    model_makespan = solution.get_value("makespan")
-    return schedule, peak, makespan, model_makespan
+    model_makespan = int(round(solution.get_value("makespan")))
+    return schedule, peak, model_makespan
 
 def write_to_csv(result):
+    os.makedirs("AVG_Peak/Output", exist_ok=True)
     with open("AVG_Peak/Output/result_cplex.csv", "a") as f:
         writer = csv.writer(f)
         writer.writerow(result)
@@ -186,21 +222,55 @@ def write_to_csv(result):
 def optimal(filename):
     n, W, precedence_relations, Ex_times = input_file(filename[0])
     m = filename[1]  # Number of stations
-    c = filename[2]  # Increased capacity to avoid infeasibility
-    print(f"n={n}, m={m}, c={c}")
+    initial_c = filename[2]
+    c = max(initial_c, max(Ex_times))
+    safe_horizon = sum(Ex_times)
     start_time = time.time()
-    solution, var, cons = solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W)
+    solution = None
+    var = cons = 0
+    status = "TIMEOUT"
+    last_solved_c = None
+    while time.time() - start_time < 3600:
+        print(f"n={n}, m={m}, c={c}")
+        last_solved_c = c
+        remaining = 3600 - (time.time() - start_time)
+        solution, var, cons = solve_assignment_problem(
+            n, m, c, Ex_times, precedence_relations, W, remaining
+        )
+        status = solver_status(solution)
+        if status == "Infeasible" and c < safe_horizon:
+            c = min(safe_horizon, max(c + 1, (3 * c + 1) // 2))
+            print("Expanding horizon to:", c)
+            continue
+        break
     end_time = time.time()
-    print("Time taken:", end_time - start_time)
-    if solution and end_time - start_time < 3600:
-        print(f"Solution for {filename[0]} with n={n}, m={m}, c={c}:")
-        schedule, Wmax, makespan, model_makespan = get_value(solution, n, m, c, W, Ex_times)
-        print("Makespan =", makespan)
-        print("Model Makespan =", model_makespan)
-        write_to_csv([filename[0], n, m, c, model_makespan, var, cons, end_time - start_time])
+    elapsed_time = end_time - start_time
+    if last_solved_c != c:
+        status = "TIMEOUT"
+        solution = None
+    print("Time taken:", elapsed_time)
+    print("Status:", status)
+    has_incumbent = solution is not None and solution.is_solution()
+    bound = objective_bound(solution) if solution is not None else None
+    gap = objective_gap(solution) if solution is not None else None
+    if has_incumbent:
+        schedule, peak, makespan = get_value(solution, n, m, c, W, Ex_times)
+        if bound is not None:
+            print("Best bound:", bound)
+        if status == "Optimal":
+            print("Optimal makespan:", makespan)
+        else:
+            print("New makespan:", makespan)
+        write_to_csv([
+            filename[0], n, m, initial_c, makespan, var, cons, elapsed_time,
+            status, calculate_qmax(W, m), "" if gap is None else gap
+        ])
     else:
         print("No solution found.")
-        write_to_csv([filename[0], n, m, c, "Timeout", var, cons, end_time - start_time])
+        write_to_csv([
+            filename[0], n, m, initial_c, "", var, cons, elapsed_time,
+            status, calculate_qmax(W, m), "" if gap is None else gap
+        ])
 
 file_name = [
     # Easy families 
@@ -378,5 +448,9 @@ file_name2 = [
 ]
 
 
-for i in range(1,2,len(file_name2)):
-    optimal(file_name2[i])
+if __name__ == "__main__":
+    if len(sys.argv) == 4:
+        optimal([sys.argv[1], int(sys.argv[2]), int(sys.argv[3])])
+    else:
+        for item in file_name2:
+            optimal(item)

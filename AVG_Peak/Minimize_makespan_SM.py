@@ -1,17 +1,21 @@
-from math import inf
-import math
 import time
-import signal
-from datetime import datetime
-import signal
-from numpy import var
 from pysat.solvers import Cadical195
-import fileinput
-from tabulate import tabulate
-import webbrowser
 import sys
+import os
+from pathlib import Path
 from pysat.pb import PBEnc, EncType
 import csv
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from search_support import (  # noqa: E402
+    analytical_cycle_lower_bound,
+    emit_event,
+    initial_probe_horizon,
+    next_probe_horizon,
+    print_safe_sequential_incumbent,
+)
+
+PRIMAL_CONFLICT_BUDGET = int(os.environ.get("SALBP_PRIMAL_CONFLICT_BUDGET", "50000"))
 
 # Sample input parameters
 n = 0
@@ -37,10 +41,11 @@ forward = [0 for i in range(n)]
 var_map = {}
 var_counter = 0
 W = []
+edge_set = "E"
 
 def read_input(filename):
     cnt = 0
-    global n, adj, neighbors, reversed_neighbors, time_list, forward, W
+    global n, adj, neighbors, reversed_neighbors, time_list, forward, W, edge_set
     temp = []
     with open('data/' + filename + '.IN2', 'r') as f:
         for line in f:
@@ -64,8 +69,9 @@ def read_input(filename):
                     else:
                         break
                 cnt = cnt + 1
-    for i in range(n):
-        delv(i, temp)
+    if edge_set == "E*":
+        for i in range(n):
+            delv(i, temp)
         
     with open('task_power/' + filename + '.txt', 'r') as k:
         W = [int(line.strip()) for line in k if line.strip()]
@@ -291,27 +297,25 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
     for j in range(n):
         for t in range (c-time_list[j]+1):
             for l in range (time_list[j]):
-                #if(time_list[j] >= c/2 and t+l >= c-time_list[j] and t+l < time_list[j]):
-                #    continue
+                # CSE-17 units are implied by these activity clauses and the
+                # exactly-one start block; archived runs did not materialize them.
                 clauses.append([-S[j][t], A[j][t+l]])
     
-    # cse-13
+    # cse-13: same-station precedence i before j.
+    # If i starts at t, j must not start at or before t + time_i - 1.
+    # When that cutoff is beyond j's last prefix variable, the clause forbids
+    # the same-station/start combination directly instead of creating a dummy T.
     for i,j in adj:
         for k in range(m):
             if ip1[i][k] == 1 or ip1[j][k] == 1:
                 continue
-            left_bound = time_list[i] - 1
-            right_bound = c - time_list[j]
-
-            clauses.append([-X[i][k], -X[j][k], -get_var("T", j, left_bound)])
-            for t in range (left_bound + 1, right_bound):
-                t_i = t - time_list[i]+1
-                # (X[i][k] ^ X[j][k] ^ T[j][t]) -> -S[i][t-d_i+1] cse-13
-                clauses.append([-X[i][k], -X[j][k], -get_var("T", j, t), -S[i][t_i]])
-            for t in range (max(0,right_bound - time_list[i] + 1), c - time_list[i] + 1):
-                # (X[i][k] ^ X[j][k] ^ T[j][c-time_list[j]-1]) -> -S[i][t] cse-13a
-                # Như ràng buộc trên nhưng t = last_j
-                clauses.append([-X[i][k], -X[j][k], -S[i][t], -get_var("T",j,c-time_list[j]-1)])
+            last_j = c - time_list[j]
+            for t in range(c - time_list[i] + 1):
+                cutoff = t + time_list[i] - 1
+                clause = [-X[i][k], -X[j][k], -S[i][t]]
+                if cutoff <= last_j - 1:
+                    clause.append(-get_var("T", j, cutoff))
+                clauses.append(clause)
     
     #(X[i][k] ^ X[j][k]) -> SM[i][j] cse-14a
     for k in range(m):
@@ -321,12 +325,12 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                     continue
                 clauses.append([-X[i][k], -X[j][k], get_var("SM", i, j)])
     
-    # (X[i][k] ^ X[j][l]) -> -SM[i][j] k khác l cse-14b
+    # (X[i][k] ^ X[j][l]) -> -SM[i][j] for k != l cse-14b
     for i in range(n-1):
         for j in range(i+1,n):
             for k in range(m):
                 for l in range(m):
-                    if ip1[i][k] == 1 or ip1[j][l] == 1 or k == l:
+                    if k == l or ip1[i][k] == 1 or ip1[j][l] == 1:
                         continue
                     clauses.append([-X[i][k], -X[j][l], -get_var("SM", i, j)])
     
@@ -375,12 +379,19 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
             
     return clauses
 
-def solve(solver):
-    if solver.solve():
-        model = solver.get_model()
-        return model
+def solve(solver, conflict_budget=None):
+    """Return SAT/UNSAT/UNKNOWN without conflating a bounded probe with proof."""
+    if conflict_budget is None:
+        result = solver.solve()
     else:
-        return None
+        solver.conf_budget(conflict_budget)
+        result = solver.solve_limited()
+        solver.conf_budget(-1)
+    if result is True:
+        return "SAT", solver.get_model()
+    if result is False:
+        return "UNSAT", None
+    return "UNKNOWN", None
 
 def get_value(solution, c):
     if solution is None:
@@ -414,7 +425,7 @@ def get_value(solution, c):
 
         return value, [table[i][:value] for i in range(m)]
 
-def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
+def optimal(X, S, A, n, m, makespan, sol, start_time, peak, probe_budget=None):
     global filename
     
     ip1, ip2 = preprocess(n, m, makespan, time_list, adj)
@@ -426,14 +437,19 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     for clause in clauses:
         solver.add_clause(clause)
 
-    model = solve(solver)
+    result_status, model = solve(solver, probe_budget)
     sol += 1
-    if model is None:
-        print("Initial solve timed out!")
-        return 0, [], var_counter, clauses, "TIMEOUT", sol
+    emit_event(start_time, "FEASIBILITY_RESULT", horizon=makespan, result=result_status)
+    if result_status == "UNKNOWN":
+        print("Feasibility probe inconclusive.")
+        return 0, [], var_counter, clauses, "UNKNOWN", sol
+    if result_status == "UNSAT":
+        print("Initial horizon is UNSAT.")
+        return 0, [], var_counter, clauses, "UNSAT", sol
      
     result = get_value(model, makespan)
     bestValue, ansmap = result
+    emit_event(start_time, "INCUMBENT", horizon=makespan, incumbent=bestValue)
     print("New makespan:", bestValue, end="\r")
     
     while (True):
@@ -443,13 +459,17 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
                 return bestValue, ansmap, var_counter, clauses, "Optimal", sol
             solver.add_clause([get_var("T", i, bestValue - time_list[i] - 1)])
         
-        model = solve(solver)        
+        result_status, model = solve(solver)
         sol += 1
-        if model is None:
+        emit_event(start_time, "IMPROVEMENT_RESULT", target=bestValue - 1, result=result_status)
+        if result_status == "UNSAT":
             print("No better solution found.")
             return bestValue, ansmap, var_counter, clauses, "Optimal", sol
+        if result_status == "UNKNOWN":
+            raise RuntimeError("unlimited CaDiCaL call returned UNKNOWN")
         
         bestValue, ansmap = get_value(model, makespan)
+        emit_event(start_time, "INCUMBENT", horizon=makespan, incumbent=bestValue)
         print("New makespan:", bestValue, end="\r") 
 
 def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM.csv"):
@@ -473,30 +493,72 @@ def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, statu
         writer.writerow(row)
 
 def calculate_peak():
-    W_sorted = sorted(W, reverse=True)
-    UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
-    LB = max(W_sorted)
-    peak = (AVG + LB) / 2
-    makespan = max(max(time_list), (sum(time_list[i] for i in range(n)) // m)*2)
-    return int(peak), makespan
+    peak = (m * sum(W) + n * max(W)) // (2 * n)
+    lower_bound = analytical_cycle_lower_bound(time_list, W, m, peak)
+    makespan = initial_probe_horizon(time_list, lower_bound, m)
+    return peak, makespan, lower_bound
+
+def reset_encoding_state():
+    """Reset state whose variable indices depend on the selected horizon."""
+    global clauses, var_map, var_counter, visited, toposort
+    clauses = []
+    var_map = {}
+    var_counter = 0
+    visited = [False for _ in range(max(200, n))]
+    toposort = []
 
 if __name__ == "__main__":
     filename = sys.argv[1]
     m = int(sys.argv[2])
+    edge_set = sys.argv[3].upper() if len(sys.argv) > 3 else "E"
+    if edge_set not in {"E", "E*"}:
+        raise ValueError("edge set must be E or E*")
     reset([filename, m])
     read_input(filename)
     sol = 0
     startime = time.time()
-    peak, makespan = calculate_peak()
-    X, A, S = generate_variables(n,m,makespan)
-    bestValue, ansmap, var, clauses, status, sol = optimal(X,S,A,n,m,makespan,sol,startime, peak)
+    peak, initial_makespan, final_lower_bound = calculate_peak()
+    safe_horizon = sum(time_list)
+    initial_makespan = min(initial_makespan, safe_horizon)
+    makespan = initial_makespan
+    bestValue, ansmap = print_safe_sequential_incumbent(time_list, W, adj, m)
+    emit_event(startime, "SAFE_INCUMBENT", incumbent=bestValue, lower_bound=final_lower_bound)
+    var = 0
+    clauses = []
+    status = "FEASIBLE"
+    print("Initial lower bound:", final_lower_bound)
+    print("Primal conflict budget:", PRIMAL_CONFLICT_BUDGET)
+    while True:
+        reset_encoding_state()
+        X, A, S = generate_variables(n,m,makespan)
+        probe_budget = None if makespan == safe_horizon else PRIMAL_CONFLICT_BUDGET
+        candidate, candidate_map, var, clauses, probe_status, sol = optimal(
+            X, S, A, n, m, makespan, sol, startime, peak, probe_budget
+        )
+        if probe_status == "Optimal":
+            bestValue, ansmap, status = candidate, candidate_map, probe_status
+            break
+        if probe_status == "UNSAT":
+            final_lower_bound = max(final_lower_bound, makespan + 1)
+        if makespan == safe_horizon and probe_status == "UNSAT":
+            status = "Infeasible"
+            break
+        if makespan == safe_horizon:
+            status = "FEASIBLE"
+            break
+        makespan = next_probe_horizon(makespan, safe_horizon)
+        print("Expanding horizon to:", makespan)
     for line in ansmap:
         print(line)
     endtime = time.time()
     if status == "Optimal":
+        final_lower_bound = bestValue
+        print("Final lower bound:", final_lower_bound)
+        print("Final upper bound:", bestValue)
         print(f"Optimal makespan: {bestValue}")
-        write_fancy_table_to_csv(filename, n, m, makespan, var, len(clauses), sol, bestValue, peak, status, endtime - startime)
+        write_fancy_table_to_csv(filename, n, m, initial_makespan, var, len(clauses), sol, bestValue, peak, status, endtime - startime)
     else:
+        print("Final lower bound:", final_lower_bound)
+        print("Final upper bound:", bestValue)
         print("No optimal solution found.")
-        write_fancy_table_to_csv(filename, n, m, makespan, var, len(clauses), sol, bestValue, peak, status, endtime - startime)
+        write_fancy_table_to_csv(filename, n, m, initial_makespan, var, len(clauses), sol, bestValue, peak, status, endtime - startime)
