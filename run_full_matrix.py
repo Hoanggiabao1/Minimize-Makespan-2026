@@ -13,6 +13,7 @@ import csv
 import hashlib
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -40,15 +41,33 @@ SAT_SOLVERS = {
     "sm_tij": "Minimize_makespan_SM_Ti,j.py",
 }
 
+MAIN_FAMILIES = {
+    "BOWMAN",
+    "BUXEY",
+    "GUNTHER",
+    "HESKIA",
+    "JACKSON",
+    "JAESCHKE",
+    "LUTZ2",
+    "MANSOOR",
+    "MERTENS",
+    "MITCHELL",
+    "ROSZIEG",
+    "SAWYER",
+    "WARNECKE",
+}
+
 ILP_SOLVERS = {
-    # The local snapshot contains a CPO model, not a distinct CPLEX-MIP
-    # entrypoint.  The latter must be added before reproducing that CSV column.
     "cplex_cp": {
         "Peak_UB_LB": "Minimize_makespan_cplex.py",
         "AVG_Peak": "Minimize_makespan_cplex.py",
     },
+    "cplex_mip": {
+        "Peak_UB_LB": "Minimize_makespan_cplex_mp.py",
+        "AVG_Peak": "Minimize_makespan_cplex_mp.py",
+    },
     "gurobi": {
-        "Peak_UB_LB": "Mnimize_makespan_gurobi.py",
+        "Peak_UB_LB": "Minimize_makespan_gurobi.py",
         "AVG_Peak": "Minimize_makespan_gurobi.py",
     },
 }
@@ -58,6 +77,7 @@ SOLVER_OUTPUTS = {
     "sm": "incremental_SM.csv",
     "sm_tij": "incremental_SM_Ti,j.csv",
     "cplex_cp": "result_cplex.csv",
+    "cplex_mip": "result_cplex_mip.csv",
     "gurobi": "result_gurobi.csv",
 }
 
@@ -75,6 +95,7 @@ CSV_FIELDS = [
     "solver",
     "edge_set",
     "search_policy",
+    "cse17_enabled",
     "c_initial",
     "qmax",
     "best_cycle_time",
@@ -435,6 +456,8 @@ def solver_command(
             edge_set,
         ]
     script = ILP_SOLVERS[solver][threshold_dir]
+    if solver == "cplex_mip":
+        return [sys.executable, "-u", str(ROOT / threshold_dir / script), instance.name, str(instance.m)]
     return [sys.executable, "-u", str(ROOT / threshold_dir / script), instance.name, str(instance.m), str(c0)]
 
 
@@ -470,10 +493,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--instances",
-        default="all",
-        help="'all', 'smoke', or comma-separated NAME and NAME:m selectors",
+        default="main",
+        help="'main' (72 paper configurations), 'all', 'smoke', or comma-separated NAME and NAME:m selectors",
     )
-    parser.add_argument("--solvers", default="origin,sm,sm_tij,cplex_cp,gurobi")
+    parser.add_argument("--solvers", default="origin,sm,sm_tij")
     parser.add_argument("--thresholds", default="peak_ub_lb,avg_peak")
     parser.add_argument(
         "--edge-sets",
@@ -493,8 +516,10 @@ def main() -> int:
         parser.error("--timeout must be positive")
 
     instances = load_instances()
-    if args.instances == "smoke":
-        instances = instances[:2]
+    if args.instances == "main":
+        instances = [item for item in instances if item.name in MAIN_FAMILIES]
+    elif args.instances == "smoke":
+        instances = [item for item in instances if item.name in MAIN_FAMILIES][:2]
     elif args.instances != "all":
         selectors = {item.strip().upper() for item in args.instances.split(",") if item.strip()}
         names = {item for item in selectors if ":" not in item}
@@ -578,6 +603,7 @@ def main() -> int:
                         "solver": solver,
                         "edge_set": edge_set,
                         "search_policy": "two_phase_feasible_first" if solver in SAT_SOLVERS else "native_optimizer",
+                        "cse17_enabled": os.environ.get("SALBP_ENABLE_CSE17", "0") if solver in SAT_SOLVERS else "",
                         "c_initial": str(c0),
                         "qmax": parsed.get("qmax") or str(qmax),
                         "best_cycle_time": parsed["best_cycle_time"],

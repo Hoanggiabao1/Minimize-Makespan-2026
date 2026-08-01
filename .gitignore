@@ -22,3 +22,7 @@ gcp_key
 gcp_key.pub
 
 output/
+
+# Local state written by scripts/gcp_experiment.sh. Result archives are stored
+# in the parent results/ directory and are intentionally not committed here.
+.gcp-experiment/
