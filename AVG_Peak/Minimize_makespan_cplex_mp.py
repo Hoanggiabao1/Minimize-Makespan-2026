@@ -1,31 +1,41 @@
-import sys
-# Ép Python tìm kiếm thư viện CPLEX trực tiếp trong thư mục cài đặt của IBM
-sys.path.append('/opt/ibm/ILOG/CPLEX_Studio2211/cplex/python/3.10/x86-64_linux')
-
-# Sau đó mới đến các dòng import hiện tại của bạn...
-import math
-import time
 import csv
+import math
+import os
+import sys
+import time
+from pathlib import Path
+
+# Retain compatibility with the Linux CPLEX Studio installation used for the
+# experiments, while still allowing a standard docplex installation.
+sys.path.append('/opt/ibm/ILOG/CPLEX_Studio2211/cplex/python/3.10/x86-64_linux')
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from docplex.mp.model import Model
 
+from search_support import (  # noqa: E402
+    analytical_cycle_lower_bound,
+    average_power_cap,
+    initial_probe_horizon,
+    next_probe_horizon,
+)
+
+
+def calculate_qmax(W, m):
+    return average_power_cap(W, m)
+
+
 def create_assignment_model(n, m, c, model, Ex_times, W):
-    # Khai báo biến nhị phân trong MIP sử dụng binary_var_matrix hoặc binary_var_dict
     X = [[model.binary_var(name=f'X_{i}_{j}') for j in range(m)] for i in range(n)]
-    S = [[model.binary_var(name=f'S_{i}_{t}') for t in range(c)] for i in range(n)]
-    
-    W_sorted = sorted(W, reverse=True)
-    UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
-    LB = max(W_sorted[i] for i in range(n))
-    
-    # Biến liên tục hoặc nguyên cho mục tiêu makespan
-    makespan = model.integer_var(name='makespan')
-    Wmax = (AVG + LB) / 2
-    return model, X, S, int(Wmax), makespan
+    S = [
+        [model.binary_var(name=f'S_{i}_{t}') for t in range(max(0, c - Ex_times[i] + 1))]
+        for i in range(n)
+    ]
+    makespan = model.integer_var(lb=max(Ex_times), ub=c, name='makespan')
+    return model, X, S, calculate_qmax(W, m), makespan
 
 def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
     cons = 0
-    # (1) Objective trong MIP dùng model.minimize() trực tiếp làm hàm mục tiêu
+    # (1) Objective
     model.minimize(makespan)
     
     # (2) Each task assigned to exactly one station
@@ -33,9 +43,11 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
         model.add_constraint(model.sum(X[j][k] for k in range(m)) == 1)
         cons += 1
 
-    # (3) Processing times at each station ≤ c (MIP thích ứng tốt với tổng tuyến tính này)
+    # (3) The workload of every station is bounded by the optimized cycle time.
     for k in range(m):
-        model.add_constraint(model.sum(Ex_times[j] * X[j][k] for j in range(n)) <= c)
+        model.add_constraint(
+            model.sum(Ex_times[j] * X[j][k] for j in range(n)) <= makespan
+        )
         cons += 1
     
     # (4) Precedence: X[j,k] ≤ sum_{h≤k} X[i,h] for i ≺ j
@@ -46,7 +58,7 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
 
     # (5) Each task assigned to exactly one start time
     for j in range(n):
-        model.add_constraint(model.sum(S[j][t] for t in range(c - Ex_times[j] + 1)) == 1)
+        model.add_constraint(model.sum(S[j]) == 1)
         cons += 1
 
     # (6) S[j,t] ≤ sum_{τ=t-ti}^{t} S[i,τ] + 2 - X[i,k] - X[j,k]
@@ -65,8 +77,12 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
         for j in range(i + 1, n):
             for k in range(m):
                 for t in range(c):
-                    r_i = range(max(0, t - Ex_times[i] + 1), t + 1)
-                    r_j = range(max(0, t - Ex_times[j] + 1), t + 1)
+                    r_i = range(
+                        max(0, t - Ex_times[i] + 1), min(t, len(S[i]) - 1) + 1
+                    )
+                    r_j = range(
+                        max(0, t - Ex_times[j] + 1), min(t, len(S[j]) - 1) + 1
+                    )
                     model.add_constraint(
                         X[i][k] + X[j][k] +
                         model.sum(S[i][tau] for tau in r_i) +
@@ -79,7 +95,12 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
     for t in range(c):
         model.add_constraint(
             model.sum(
-                W[j] * model.sum(S[j][s] for s in range(max(0, t - Ex_times[j] + 1), t + 1))
+                W[j] * model.sum(
+                    S[j][s]
+                    for s in range(
+                        max(0, t - Ex_times[j] + 1), min(t, len(S[j]) - 1) + 1
+                    )
+                )
                 for j in range(n)
             ) <= Wmax
         )
@@ -87,56 +108,92 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
 
     # (10) Makespan definition
     for j in range(n):
-        model.add_constraint(makespan >= model.sum(S[j][t] * t for t in range(c - Ex_times[j] + 1)) + Ex_times[j])
+        model.add_constraint(
+            makespan
+            >= model.sum(S[j][t] * t for t in range(len(S[j]))) + Ex_times[j]
+        )
         cons += 1
         
     return model, cons
 
-def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W):
-    # Khởi tạo mô hình MIP thay vì CP
-    import os
+def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W, time_limit=3600):
     os.environ['PATH'] += os.pathsep + '/opt/ibm/ILOG/CPLEX_Studio2211/cplex/bin/x86-64_linux'
 
-    mip_model = Model(name="Assignment_MIP")
-    model, X, S, Wmax, makespan = create_assignment_model(n, m, c, mip_model, Ex_times, W)
+    model, X, S, Wmax, makespan = create_assignment_model(
+        n, m, c, Model(name="Assignment_MIP"), Ex_times, W
+    )
     print("Wmax =", Wmax)
     model, cons = add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan)
-    
-    # Thiết lập tham số cho CPLEX MIP
-    model.parameters.mip.tolerances.mipgap = 0.0  # Tìm giải pháp tối ưu tuyệt đối nếu có thể
-    model.parameters.timelimit = 3600
+
+    model.parameters.mip.tolerances.mipgap = 0.0
+    model.parameters.timelimit = max(0.001, time_limit)
     model.context.solver.log_output = True
     model.parameters.mip.limits.treememory = 2048
-    
+
+    variables = n * m + sum(len(row) for row in S) + 1
     try:
         solution = model.solve()
-        return solution, X, S, makespan, n*m+n*c, cons
-    except (Exception, MemoryError) as e:
-        print("Error during solving:", e)
-        return None, None, None, None, n*m+n*c, cons
+        return model, solution, X, S, makespan, variables, cons
+    except (Exception, MemoryError) as exc:
+        print("Error during solving:", exc)
+        return model, None, X, S, makespan, variables, cons
+
+
+def solver_status(model, solution):
+    try:
+        raw_status = str(model.solve_details.status).upper()
+    except (AttributeError, TypeError):
+        raw_status = ""
+    if "OPTIMAL" in raw_status:
+        return "Optimal"
+    if "INFEASIBLE" in raw_status or "UNBOUNDED" in raw_status:
+        return "Infeasible"
+    if solution is not None:
+        return "TIMEOUT"
+    if "TIME LIMIT" in raw_status or "LIMIT" in raw_status:
+        return "TIMEOUT"
+    if "FAIL" in raw_status or "ERROR" in raw_status or "ABORT" in raw_status:
+        return "FAILED"
+    return "FAILED"
+
+
+def objective_bound(model):
+    try:
+        value = float(model.solve_details.best_bound)
+        return value if math.isfinite(value) else None
+    except (AttributeError, TypeError, ValueError):
+        return None
+
+
+def objective_gap(model):
+    try:
+        value = float(model.solve_details.mip_relative_gap)
+        return value if math.isfinite(value) else None
+    except (AttributeError, TypeError, ValueError):
+        return None
 
 def get_value(solution, X, S, makespan_var, n, m, c, W, Ex_times):
-    # MIP lấy giá trị biến bằng cách gọi .solution_value trực tiếp từ đối tượng biến
-    X_values = [[int(round(X[i][k].solution_value)) for k in range(m)] for i in range(n)]
-    S_values = [[int(round(S[i][t].solution_value)) for t in range(c)] for i in range(n)]
+    X_values = [
+        [int(round(solution.get_value(X[i][k]))) for k in range(m)]
+        for i in range(n)
+    ]
+    S_values = [
+        [int(round(solution.get_value(S[i][t]))) for t in range(len(S[i]))]
+        for i in range(n)
+    ]
 
     schedule = [[0 for _ in range(c)] for _ in range(m + 1)]
-    makespan = 0
-
-    for k in range(m):
-        for j in range(n):
-            for t in range(c):
-                for t0 in range(Ex_times[j]):
-                    if t - t0 >= 0:
-                        if X_values[j][k] == 1 and S_values[j][t - t0] == 1:
-                            schedule[k][t] = W[j]
-                            makespan = max(makespan, t + 1)
+    for task in range(n):
+        station = next(k for k in range(m) if X_values[task][k] == 1)
+        start = next(t for t, value in enumerate(S_values[task]) if value == 1)
+        print(f"Task {task + 1} assigned to machine {station + 1} at time {start}")
+        for t in range(start, start + Ex_times[task]):
+            schedule[station][t] = W[task]
 
     schedule[m] = [sum(schedule[k_idx][t] for k_idx in range(m)) for t in range(c)]
     peak = max(schedule[m]) if schedule[m] else 0
-    model_makespan = int(round(makespan_var.solution_value))
-    
-    return schedule, peak, makespan, model_makespan
+    model_makespan = int(round(solution.get_value(makespan_var)))
+    return schedule, peak, model_makespan
 
 # --- Các hàm đọc/ghi file giữ nguyên logic của bạn ---
 def input_file(file_name):
@@ -163,29 +220,71 @@ def input_file(file_name):
     return n, W, precedence_relations, Ex_Time
 
 def write_to_csv(result):
-    with open("AVG_Peak/Output/result_cplex_mip.csv", "a") as f:
+    os.makedirs("AVG_Peak/Output", exist_ok=True)
+    with open("AVG_Peak/Output/result_cplex_mip.csv", "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(result)
 
-def optimal(filename):
+def optimal(filename, time_limit=3600):
     n, W, precedence_relations, Ex_times = input_file(filename[0])
-    m = filename[1]  
-    c = max(max(Ex_times), 2 * int(sum(Ex_times) / m))
-    print(f"n={n}, m={m}, c={c}")
+    m = filename[1]
+    qmax = calculate_qmax(W, m)
+    lower_bound = analytical_cycle_lower_bound(Ex_times, W, m, qmax)
+    requested_c = (
+        int(filename[2])
+        if len(filename) > 2
+        else initial_probe_horizon(Ex_times, lower_bound, m)
+    )
+    safe_horizon = sum(Ex_times)
+    initial_c = min(max(requested_c, lower_bound), safe_horizon)
+    c = initial_c
     start_time = time.time()
-    solution, X, S, makespan_var, var, cons = solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W)
+    model = solution = X = S = makespan_var = None
+    var = cons = 0
+    status = "TIMEOUT"
+    while time.time() - start_time < time_limit:
+        print(f"n={n}, m={m}, c={c}")
+        remaining = time_limit - (time.time() - start_time)
+        model, solution, X, S, makespan_var, var, cons = solve_assignment_problem(
+            n, m, c, Ex_times, precedence_relations, W, remaining
+        )
+        status = solver_status(model, solution)
+        if status == "Infeasible" and c < safe_horizon:
+            model.end()
+            model = solution = None
+            c = next_probe_horizon(c, safe_horizon)
+            print("Expanding horizon to:", c)
+            continue
+        break
     end_time = time.time()
-    
-    print("Time taken:", end_time - start_time)
-    if solution:
-        print(f"Solution for {filename[0]} with n={n}, m={m}, c={c}:")
-        schedule, Wmax_val, makespan, model_makespan = get_value(solution, X, S, makespan_var, n, m, c, W, Ex_times)
-        print("Makespan =", makespan)
-        print("Model Makespan =", model_makespan)
-        write_to_csv([filename[0], n, m, c, model_makespan, var, cons, end_time - start_time])
+    elapsed_time = end_time - start_time
+    print("Time taken:", elapsed_time)
+    print("Status:", status)
+    bound = objective_bound(model) if model is not None else None
+    gap = objective_gap(model) if model is not None else None
+    if solution is not None:
+        schedule, peak, model_makespan = get_value(
+            solution, X, S, makespan_var, n, m, c, W, Ex_times
+        )
+        print("Peak =", peak)
+        if bound is not None:
+            print("Best bound:", bound)
+        if status == "Optimal":
+            print("Optimal makespan:", model_makespan)
+        else:
+            print("New makespan:", model_makespan)
+        write_to_csv([
+            filename[0], n, m, initial_c, model_makespan, var, cons, elapsed_time,
+            status, qmax, "" if gap is None else gap
+        ])
     else:
         print("No solution found.")
-        write_to_csv([filename[0], n, m, c, "Timeout/Infeasible", var, cons, end_time - start_time])
+        write_to_csv([
+            filename[0], n, m, initial_c, "", var, cons, elapsed_time,
+            status, qmax, "" if gap is None else gap
+        ])
+    if model is not None:
+        model.end()
 
 file_name = [
     # Easy families 
@@ -281,5 +380,5 @@ file_name = [
 if __name__ == "__main__":
     filename = sys.argv[1]
     m = int(sys.argv[2])
-    optimal([filename, m])
-    
+    initial_c = int(sys.argv[3]) if len(sys.argv) > 3 else None
+    optimal([filename, m] if initial_c is None else [filename, m, initial_c])

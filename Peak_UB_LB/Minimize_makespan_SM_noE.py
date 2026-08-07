@@ -10,8 +10,16 @@ import fileinput
 from tabulate import tabulate
 import webbrowser
 import sys
+from pathlib import Path
 from pysat.pb import PBEnc, EncType
 import csv
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from search_support import (  # noqa: E402
+    analytical_cycle_lower_bound,
+    initial_probe_horizon,
+    upper_lower_power_cap,
+)
 
 # Sample input parameters
 n = 0
@@ -452,13 +460,10 @@ def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, statu
         writer.writerow(row)
 
 def calculate_peak():
-    W_sorted = sorted(W, reverse=True)
-    UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
-    LB = max(W_sorted)
-    peak = (UB + LB) / 2
-    makespan = max(max(time_list), (sum(time_list[i] for i in range(n)) // m)*2)
-    return int(peak), makespan
+    peak = upper_lower_power_cap(W, m)
+    lower_bound = analytical_cycle_lower_bound(time_list, W, m, peak)
+    makespan = initial_probe_horizon(time_list, lower_bound, m)
+    return peak, makespan
 
 if __name__ == "__main__":
     filename = sys.argv[1]

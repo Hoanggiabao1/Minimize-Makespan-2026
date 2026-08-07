@@ -13,6 +13,7 @@ from search_support import (  # noqa: E402
     initial_probe_horizon,
     next_probe_horizon,
     print_safe_sequential_incumbent,
+    upper_lower_power_cap,
 )
 
 PRIMAL_CONFLICT_BUDGET = int(os.environ.get("SALBP_PRIMAL_CONFLICT_BUDGET", "50000"))
@@ -514,12 +515,7 @@ def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, statu
         writer.writerow(row)
 
 def calculate_peak():
-    W_sorted = sorted(W, reverse=True)
-    UB = sum(W_sorted[i] for i in range(m))
-    AVG = (sum(W_sorted[i] for i in range(n)) / n) * m
-    LB = max(W_sorted)
-    peak = (UB + LB) / 2
-    peak = int(peak)
+    peak = upper_lower_power_cap(W, m)
     lower_bound = analytical_cycle_lower_bound(time_list, W, m, peak)
     makespan = initial_probe_horizon(time_list, lower_bound, m)
     return peak, makespan, lower_bound

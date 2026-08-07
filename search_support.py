@@ -19,6 +19,21 @@ from typing import Iterable
 EVENT_PREFIX = "SALBP_EVENT "
 
 
+def average_power_cap(powers: list[int], stations: int) -> int:
+    """Return floor((m * average power + maximum task power) / 2)."""
+    if not powers or stations <= 0 or stations > len(powers):
+        raise ValueError("powers must be non-empty and stations must be in 1..n")
+    return (stations * sum(powers) + len(powers) * max(powers)) // (2 * len(powers))
+
+
+def upper_lower_power_cap(powers: list[int], stations: int) -> int:
+    """Return floor((sum of the m largest powers + maximum power) / 2)."""
+    if not powers or stations <= 0 or stations > len(powers):
+        raise ValueError("powers must be non-empty and stations must be in 1..n")
+    ordered = sorted(powers, reverse=True)
+    return (sum(ordered[:stations]) + ordered[0]) // 2
+
+
 def emit_event(start_time: float, event: str, **payload: object) -> None:
     """Emit a machine-readable event while keeping stdout human-readable."""
     record = {"elapsed": time.time() - start_time, "event": event, **payload}

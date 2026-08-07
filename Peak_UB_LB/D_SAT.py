@@ -5,6 +5,15 @@ from pysat.pb import EncType
 import math
 import time
 import csv
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from search_support import (  # noqa: E402
+    analytical_cycle_lower_bound,
+    initial_probe_horizon,
+    upper_lower_power_cap,
+)
 
 def generate_variables(n, m, c):
     # X[i][s]: task i for station s
@@ -125,10 +134,7 @@ def list_constrain(n, m, c, precedence_relations, Ex_Time, W, A, B, X, C, peak):
     return clauses, start
 
 def generate_peak(W, n, m):
-    W_sorted = sorted(W, reverse=True)
-    UB = sum(W_sorted[i] for i in range(m))
-    peak = sum(W_sorted[i] for i in range(n))/n
-    return (UB + max(W))/2
+    return upper_lower_power_cap(W, m)
 
 def input_file(file_name):
     W = []
@@ -182,13 +188,13 @@ def get_value(n, m, c, model, W, Ex_Time):
 
 if __name__ == "__main__":
     print("Minimizing Makespan with Peak Power Constraint using SAT Solver")
-    import sys
     m = int(sys.argv[2])
     file_name = sys.argv[1]
 
     n, W, precedence_relations, Ex_Time = input_file(file_name)
-    c = max(max(Ex_Time), 2*int(sum(Ex_Time) / m))
     peak = generate_peak(W, n, m)
+    lower_bound = analytical_cycle_lower_bound(Ex_Time, W, m, peak)
+    c = initial_probe_horizon(Ex_Time, lower_bound, m)
     print(f"Generated peak power consumption limit: {peak}")
     X, B, A, C = generate_variables(n, m, c)
     clauses, var = list_constrain(n, m, c, precedence_relations, Ex_Time, W, A, B, X, C, peak)
