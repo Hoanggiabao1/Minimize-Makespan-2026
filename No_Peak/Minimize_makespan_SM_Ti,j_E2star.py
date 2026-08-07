@@ -478,10 +478,8 @@ def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, statu
         writer.writerow(row)
 
 def calculate_peak():
-    peak = average_power_cap(W, m)
-    lower_bound = analytical_cycle_lower_bound(time_list, W, m, peak)
-    makespan = initial_probe_horizon(time_list, lower_bound, m)
-    return peak, makespan
+    makespan = initial_probe_horizon(time_list, max(time_list), m)
+    return makespan
 
 if __name__ == "__main__":
     filename = sys.argv[1]
@@ -490,7 +488,8 @@ if __name__ == "__main__":
     read_input(filename)
     sol = 0
     startime = time.time()
-    peak, makespan = calculate_peak()
+    makespan = calculate_peak()
+    peak = 0 #Not used in this version
     X, A, S = generate_variables(n,m,makespan)
     bestValue, ansmap, var, clauses, status, sol = optimal(X,S,A,n,m,makespan,sol,startime, peak)
     for line in ansmap:
