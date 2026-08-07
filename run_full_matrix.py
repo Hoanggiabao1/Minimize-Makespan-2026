@@ -21,6 +21,8 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from search_support import average_power_cap, upper_lower_power_cap
+
 
 ROOT = Path(__file__).resolve().parent
 # The orchestrator owns the experiment-wide cutoff. Commercial solvers receive
@@ -171,12 +173,9 @@ def power_aware_lower_bound(times: list[int], powers: list[int], m: int, qmax: i
 
 
 def qmax_for(threshold_dir: str, powers: list[int], m: int) -> int:
-    ordered = sorted(powers, reverse=True)
-    ub = sum(ordered[:m])
-    lb = max(ordered)
     if threshold_dir == "Peak_UB_LB":
-        return int((ub + lb) // 2)
-    return (m * sum(ordered) + len(ordered) * lb) // (2 * len(ordered))
+        return upper_lower_power_cap(powers, m)
+    return average_power_cap(powers, m)
 
 
 def sha256_file(path: Path) -> str:
@@ -456,8 +455,6 @@ def solver_command(
             edge_set,
         ]
     script = ILP_SOLVERS[solver][threshold_dir]
-    if solver == "cplex_mip":
-        return [sys.executable, "-u", str(ROOT / threshold_dir / script), instance.name, str(instance.m)]
     return [sys.executable, "-u", str(ROOT / threshold_dir / script), instance.name, str(instance.m), str(c0)]
 
 
@@ -480,6 +477,21 @@ def append_row(path: Path, row: dict[str, str]) -> None:
     with path.open("a", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=CSV_FIELDS)
         writer.writerow(row)
+
+
+def get_completed_run_ids(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    completed = set()
+    with path.open("r", newline="", encoding="utf-8", errors="replace") as handle:
+        try:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                if row and row.get("run_id"):
+                    completed.add(row["run_id"].strip())
+        except Exception:
+            pass
+    return completed
 
 
 def main() -> int:
@@ -509,6 +521,7 @@ def main() -> int:
         help="directory for JSON schedule witnesses; use --no-witnesses to disable",
     )
     parser.add_argument("--no-witnesses", action="store_true")
+    parser.add_argument("--resume", action="store_true", help="skip run_ids already recorded in result CSV")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -557,6 +570,10 @@ def main() -> int:
     if not args.dry_run:
         write_header_if_needed(result_path)
 
+    completed_run_ids = get_completed_run_ids(result_path) if args.resume else set()
+    if args.resume and completed_run_ids:
+        print(f"Resuming run: found {len(completed_run_ids)} already completed runs in {result_path}")
+
     for instance in instances:
         times, powers = read_instance_data(instance.name)
         n = len(times)
@@ -572,6 +589,9 @@ def main() -> int:
                         f"{instance.name}__m{instance.m}__{threshold}__{solver}__"
                         f"{'estar' if edge_set == 'E*' else 'e'}"
                     )
+                    if args.resume and run_id in completed_run_ids:
+                        print(f"Skipping completed run_id: {run_id}")
+                        continue
                     cmd = solver_command(threshold_dir, solver, instance, c0, edge_set)
                     if args.dry_run:
                         print(" ".join(cmd))

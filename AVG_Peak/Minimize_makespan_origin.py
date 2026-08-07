@@ -9,6 +9,7 @@ import csv
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from search_support import (  # noqa: E402
     analytical_cycle_lower_bound,
+    average_power_cap,
     emit_event,
     initial_probe_horizon,
     next_probe_horizon,
@@ -481,7 +482,7 @@ def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, statu
         writer.writerow(row)
 
 def calculate_peak():
-    peak = (m * sum(W) + n * max(W)) // (2 * n)
+    peak = average_power_cap(W, m)
     lower_bound = analytical_cycle_lower_bound(time_list, W, m, peak)
     makespan = initial_probe_horizon(time_list, lower_bound, m)
     return peak, makespan, lower_bound

@@ -7,8 +7,12 @@ set -Eeuo pipefail
 # was used to validate the solver installation on the VM.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+RESUME="${RESUME:-0}"
+if [[ -n "${RESULT_DIR:-}" ]] && [[ -z "${RUN_ID:-}" ]]; then
+    RUN_ID="$(basename "${RESULT_DIR}")"
+fi
+RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
 RESULT_DIR="${RESULT_DIR:-${ROOT_DIR}/../results/gcp/${RUN_ID}}"
 INSTANCES="${INSTANCES:-main}"
 SOLVERS="${SOLVERS:-origin,sm,sm_tij}"
@@ -37,13 +41,14 @@ sha256_file() {
 [[ "${PRIMAL_CONFLICT_BUDGET}" =~ ^[1-9][0-9]*$ ]] || die "PRIMAL_CONFLICT_BUDGET must be positive"
 [[ "${ENABLE_CSE17}" == "0" || "${ENABLE_CSE17}" == "1" ]] || die "ENABLE_CSE17 must be 0 or 1"
 [[ "${PACKAGE_RESULTS}" == "0" || "${PACKAGE_RESULTS}" == "1" ]] || die "PACKAGE_RESULTS must be 0 or 1"
+[[ "${RESUME}" == "0" || "${RESUME}" == "1" ]] || die "RESUME must be 0 or 1"
 command -v "${PYTHON_BIN}" >/dev/null 2>&1 || die "PYTHON_BIN is not executable: ${PYTHON_BIN}"
 
 ARTIFACT_DIR="${RESULT_DIR}"
 RESULT_CSV="${ARTIFACT_DIR}/full_matrix_runs.csv"
 EVENT_LOG="${ARTIFACT_DIR}/full_matrix_events.jsonl"
 WITNESS_DIR="${ARTIFACT_DIR}/schedule_witnesses"
-if [[ -d "${ARTIFACT_DIR}" ]] && [[ -n "$(find "${ARTIFACT_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+if [[ "${RESUME}" != "1" ]] && [[ -d "${ARTIFACT_DIR}" ]] && [[ -n "$(find "${ARTIFACT_DIR}" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
     die "RESULT_DIR already contains files; choose a new run directory: ${ARTIFACT_DIR}"
 fi
 mkdir -p "${ARTIFACT_DIR}" "${WITNESS_DIR}"
@@ -51,7 +56,7 @@ ARCHIVE_DIR="$(cd "$(dirname "${RESULT_DIR}")" && pwd)"
 ARCHIVE_NAME="salbp-results-${RUN_ID}.tar.gz"
 ARCHIVE_PATH="${ARCHIVE_DIR}/${ARCHIVE_NAME}"
 CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
-if [[ "${PACKAGE_RESULTS}" == "1" ]] && [[ -e "${ARCHIVE_PATH}" || -e "${CHECKSUM_PATH}" ]]; then
+if [[ "${RESUME}" != "1" ]] && [[ "${PACKAGE_RESULTS}" == "1" ]] && [[ -e "${ARCHIVE_PATH}" || -e "${CHECKSUM_PATH}" ]]; then
     die "result archive already exists; choose a new RUN_ID or RESULT_DIR: ${ARCHIVE_PATH}"
 fi
 
@@ -153,19 +158,25 @@ for directory in (root / "data", root / "task_power"):
 PY
 
 cd "${ROOT_DIR}"
+RUNNER_ARGS=(
+    --instances "${INSTANCES}"
+    --solvers "${SOLVERS}"
+    --thresholds "${THRESHOLDS}"
+    --edge-sets "${EDGE_SETS}"
+    --timeout "${TIMEOUT_SECONDS}"
+    --results "${RESULT_CSV}"
+    --event-log "${EVENT_LOG}"
+    --witness-dir "${WITNESS_DIR}"
+)
+if [[ "${RESUME}" == "1" ]]; then
+    RUNNER_ARGS+=("--resume")
+fi
+
 set +e
 PYTHONUNBUFFERED=1 \
 SALBP_PRIMAL_CONFLICT_BUDGET="${PRIMAL_CONFLICT_BUDGET}" \
 SALBP_ENABLE_CSE17="${ENABLE_CSE17}" \
-"${PYTHON_BIN}" run_full_matrix.py \
-    --instances "${INSTANCES}" \
-    --solvers "${SOLVERS}" \
-    --thresholds "${THRESHOLDS}" \
-    --edge-sets "${EDGE_SETS}" \
-    --timeout "${TIMEOUT_SECONDS}" \
-    --results "${RESULT_CSV}" \
-    --event-log "${EVENT_LOG}" \
-    --witness-dir "${WITNESS_DIR}"
+"${PYTHON_BIN}" run_full_matrix.py "${RUNNER_ARGS[@]}"
 RUNNER_EXIT_CODE=$?
 set -e
 
