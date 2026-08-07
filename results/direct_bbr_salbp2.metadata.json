@@ -1,0 +1,24 @@
+{
+  "created_utc": "2026-08-07T13:53:53.160215+00:00",
+  "method": "Independent Direct BBR reimplementation for SALBP-2",
+  "reference": "https://doi.org/10.1016/j.cor.2024.106597",
+  "single_threaded": true,
+  "matrix_file": "bbr-salbp/benchmarks/salbp2_classical_73.csv",
+  "matrix_sha256": "5f96c90381d59ec6ab3fc253c5ef400d4d6866c98b0f255a865429a14368d3e8",
+  "data_directory": "data",
+  "solver_source_sha256": "1309b16d0ac2e31718bc609a0859055ad2bfe7dfd73dee8609a4d1feb8698d40",
+  "solver_executable_sha256": "150c42f9c60d8e9a16dc32ff354e54a5ae52987fb433365dadceddff8877f385",
+  "runner_source_sha256": "8e141428f5aacdb159132701fa5423bb6120525cc3e6d5021738086a874f452e",
+  "repository_git_commit": "0cc452f1beaa02cb15a8b848e46a8772ad499c39",
+  "compiler": "Apple clang version 17.0.0 (clang-1700.0.13.5)",
+  "python": "3.9.6",
+  "platform": "macOS-15.5-arm64-arm-64bit",
+  "machine": "arm64",
+  "processor": "arm",
+  "configuration": {
+    "time_limit_seconds_per_instance": 600.0,
+    "memory_state_limit": 60000000,
+    "max_extensions_per_state_phase_1": 10000,
+    "extra_solver_arguments": []
+  }
+}
