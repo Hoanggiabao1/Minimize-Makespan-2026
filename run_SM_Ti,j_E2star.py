@@ -93,95 +93,9 @@ file_name = [
     ["LUTZ2", 24, 21]       # 71
 ]
 
-#Test 1 số thực nghiệm để kiểm tra tính ổn định của code trước khi chạy hết tất cả các file
-file_name = [
-    # Buxey
-    ["BUXEY", 7, 47],      # 0
-    ["BUXEY", 8, 41],      # 1
-    ["BUXEY", 9, 37],      # 2
-    ["BUXEY", 10, 34],     # 3
-    ["BUXEY", 11, 32],     # 4
-    ["BUXEY", 12, 28],     # 5
-    ["BUXEY", 13, 27],     # 6
-    ["BUXEY", 14, 25],     # 7
-
-    # Gunther
-    ["GUNTHER", 6, 84],    # 8
-    ["GUNTHER", 7, 72],    # 9
-    ["GUNTHER", 8, 63],    # 10
-    ["GUNTHER", 9, 54],    # 11
-    ["GUNTHER", 10, 50],   # 12
-    ["GUNTHER", 11, 48],   # 13
-    ["GUNTHER", 12, 44],   # 14
-    ["GUNTHER", 13, 42],   # 15
-    ["GUNTHER", 14, 40],   # 16
-    ["GUNTHER", 15, 40],   # 17
-
-    # Sawyer
-    ["SAWYER", 7, 47],    # 18
-    ["SAWYER", 8, 41],    # 19
-    ["SAWYER", 9, 37],    # 20
-    ["SAWYER", 10, 34],   # 21
-    ["SAWYER", 11, 31],   # 22
-    ["SAWYER", 12, 28],   # 23
-    ["SAWYER", 13, 26],   # 24
-    ["SAWYER", 14, 25],   # 25
-
-    # Warnecke
-    ["WARNECKE", 3, 516],   # 26
-    ["WARNECKE", 4, 387],   # 27
-    ["WARNECKE", 5, 310],   # 28
-    ["WARNECKE", 6, 258],   # 29
-    ["WARNECKE", 7, 222],   # 30
-    ["WARNECKE", 8, 194],   # 31
-    ["WARNECKE", 9, 172],   # 32
-    ["WARNECKE", 10, 155],  # 33
-    ["WARNECKE", 11, 142],  # 34
-    ["WARNECKE", 12, 130],  # 35
-    ["WARNECKE", 13, 120],  # 36
-    ["WARNECKE", 14, 111],  # 37
-    ["WARNECKE", 15, 104],  # 38
-    ["WARNECKE", 16, 98],   # 39
-    ["WARNECKE", 17, 92],   # 40
-    ["WARNECKE", 18, 87],   # 41
-    ["WARNECKE", 19, 84],   # 42
-    ["WARNECKE", 20, 79],   # 43
-    ["WARNECKE", 21, 76],   # 44
-    ["WARNECKE", 22, 73],   # 45
-    ["WARNECKE", 23, 69],   # 46
-    ["WARNECKE", 24, 66],   # 47
-    ["WARNECKE", 25, 64],   # 48
-    ["WARNECKE", 26, 64],   # 49
-    ["WARNECKE", 27, 60],   # 50
-    ["WARNECKE", 28, 59],   # 51
-    ["WARNECKE", 29, 56],   # 52
-
-    # Lutz2
-    ["LUTZ2", 9, 54],      # 53
-    ["LUTZ2", 10, 49],     # 54
-    ["LUTZ2", 11, 45],     # 55
-    ["LUTZ2", 12, 41],     # 56
-    ["LUTZ2", 13, 38],     # 57
-    ["LUTZ2", 14, 35],     # 58
-    ["LUTZ2", 15, 33],     # 59
-    ["LUTZ2", 16, 31],     # 60
-    ["LUTZ2", 17, 29],     # 61
-    ["LUTZ2", 18, 28],     # 62
-    ["LUTZ2", 19, 26],     # 63
-    ["LUTZ2", 20, 25],     # 64
-    ["LUTZ2", 21, 24],     # 65
-    ["LUTZ2", 22, 23],     # 66
-    ["LUTZ2", 23, 22],     # 67
-    ["LUTZ2", 24, 21],     # 68
-    ["LUTZ2", 25, 20],     # 69
-    ["LUTZ2", 26, 19],     # 70
-    ["LUTZ2", 27, 19],     # 71
-    ["LUTZ2", 28, 18],     # 72
-]
-
 TIMEOUT_LIMIT = 3600
-INPUT_FOLDER = "Peak_UB_LB"
-INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_Ti,j_E**.py"
+INPUT_FOLDER = "No_Peak"
+INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_Ti,j_E2star.py"
 OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_SM_Ti,j_E**.csv"
 
 for i, item in enumerate(file_name):

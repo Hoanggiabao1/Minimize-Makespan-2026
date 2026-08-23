@@ -210,6 +210,8 @@ if __name__ == "__main__":
         ans_map, new_peak, makespan = get_value(n, m, c, model, W, Ex_Time)
         print(f"Initial makespan: {makespan} with peak {new_peak}")
         while True:
+            if makespan - 1 < lower_bound:
+                break
             for i in range(n):
                 solver.add_clause([C[i][makespan - 1]])
             num_clauses += n

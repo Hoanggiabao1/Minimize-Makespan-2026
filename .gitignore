@@ -22,3 +22,9 @@ gcp_key
 gcp_key.pub
 
 output/
+
+results/
+
+run.log
+
+nohup.out

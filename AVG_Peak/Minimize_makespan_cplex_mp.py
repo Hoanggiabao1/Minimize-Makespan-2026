@@ -24,19 +24,21 @@ def calculate_qmax(W, m):
     return average_power_cap(W, m)
 
 
-def create_assignment_model(n, m, c, model, Ex_times, W):
+def create_assignment_model(n, m, c, model, Ex_times, W, lower_bound):
     X = [[model.binary_var(name=f'X_{i}_{j}') for j in range(m)] for i in range(n)]
     S = [
         [model.binary_var(name=f'S_{i}_{t}') for t in range(max(0, c - Ex_times[i] + 1))]
         for i in range(n)
     ]
-    makespan = model.integer_var(lb=max(Ex_times), ub=c, name='makespan')
+    makespan = model.integer_var(ub=c, name='makespan')
     return model, X, S, calculate_qmax(W, m), makespan
 
-def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
+def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan, lower_bound):
     cons = 0
     # (1) Objective
     model.minimize(makespan)
+    model.add_constraint(makespan >= lower_bound)
+    cons += 1
     
     # (2) Each task assigned to exactly one station
     for j in range(n):
@@ -116,14 +118,19 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
         
     return model, cons
 
-def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W, time_limit=3600):
+def solve_assignment_problem(
+    n, m, c, Ex_times, precedence_relations, W, lower_bound, time_limit=3600
+):
     os.environ['PATH'] += os.pathsep + '/opt/ibm/ILOG/CPLEX_Studio2211/cplex/bin/x86-64_linux'
 
     model, X, S, Wmax, makespan = create_assignment_model(
-        n, m, c, Model(name="Assignment_MIP"), Ex_times, W
+        n, m, c, Model(name="Assignment_MIP"), Ex_times, W, lower_bound
     )
     print("Wmax =", Wmax)
-    model, cons = add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan)
+    model, cons = add_assignment_constraints(
+        n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations,
+        makespan, lower_bound
+    )
 
     model.parameters.mip.tolerances.mipgap = 0.0
     model.parameters.timelimit = max(0.001, time_limit)
@@ -246,7 +253,7 @@ def optimal(filename, time_limit=3600):
         print(f"n={n}, m={m}, c={c}")
         remaining = time_limit - (time.time() - start_time)
         model, solution, X, S, makespan_var, var, cons = solve_assignment_problem(
-            n, m, c, Ex_times, precedence_relations, W, remaining
+            n, m, c, Ex_times, precedence_relations, W, lower_bound, remaining
         )
         status = solver_status(model, solution)
         if status == "Infeasible" and c < safe_horizon:

@@ -419,7 +419,7 @@ def get_value(solution, c):
 
         return value, [table[i][:value] for i in range(m)]
 
-def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
+def optimal(X, S, A, n, m, makespan, sol, start_time, peak, lower_bound):
     global filename
     
     ip1, ip2 = preprocess(n, m, makespan, time_list, adj)
@@ -442,6 +442,9 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     print("New makespan:", bestValue, end="\r")
     
     while (True):
+        if bestValue - 1 < lower_bound:
+            print("Reached lower bound. Optimal solution found.")
+            return bestValue, ansmap, var_counter, clauses, "Optimal", sol
         for i in range(n):
             if bestValue - time_list[i] - 1 < 0:
                 print("Optimal solution found.")
@@ -457,11 +460,12 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
         bestValue, ansmap = get_value(model, makespan)
         print("New makespan:", bestValue, end="\r") 
 
+
 def write_fancy_table_to_csv(ins, n, m, c, val, cons, sol, makespan, peak, status, time_elapsed, filename="incremental_SM_Ti,j_E**.csv"):
     global best_result
     
     # Write to CSV
-    with open("AVG_Peak/Output/" + filename, "a", newline='') as f:
+    with open("No_Peak/Output/" + filename, "a", newline='') as f:
         writer = csv.writer(f)
         row = []
         row.append(ins)
@@ -491,7 +495,8 @@ if __name__ == "__main__":
     makespan = calculate_peak()
     peak = 0 #Not used in this version
     X, A, S = generate_variables(n,m,makespan)
-    bestValue, ansmap, var, clauses, status, sol = optimal(X,S,A,n,m,makespan,sol,startime, peak)
+    lower_bound = max(max(time_list), sum(time_list) // m + 1)
+    bestValue, ansmap, var, clauses, status, sol = optimal(X,S,A,n,m,makespan,sol,startime, peak, lower_bound)
     for line in ansmap:
         print(line)
     endtime = time.time()

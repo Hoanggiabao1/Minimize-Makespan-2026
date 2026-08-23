@@ -221,7 +221,6 @@ def main() -> int:
             str(args.max_extensions),
             "--csv-output",
             str(args.output),
-            "--quiet",
         ]
         command.extend(extra)
         print(f"[{index}/{len(pending)}] {name}, m={stations}", flush=True)

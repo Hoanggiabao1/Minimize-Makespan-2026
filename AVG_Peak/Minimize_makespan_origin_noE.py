@@ -385,7 +385,7 @@ def get_value(solution, c):
 
         return value, [table[i][:value] for i in range(m)]
 
-def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
+def optimal(X, S, A, n, m, makespan, sol, start_time, peak, lower_bound):
     global filename
     
     ip1, ip2 = preprocess(n, m, makespan, time_list, adj)
@@ -408,6 +408,9 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak):
     print("New makespan:", bestValue, end="\r")
     
     while (True):
+        if bestValue - 1 < lower_bound:
+            print("Reached lower bound. Optimal solution found.")
+            return bestValue, ansmap, var_counter, clauses, "Optimal", sol
         for i in range(n):
             if bestValue - time_list[i] - 1 < 0:
                 print("Optimal solution found.")
@@ -447,7 +450,7 @@ def calculate_peak():
     peak = average_power_cap(W, m)
     lower_bound = analytical_cycle_lower_bound(time_list, W, m, peak)
     makespan = initial_probe_horizon(time_list, lower_bound, m)
-    return peak, makespan
+    return peak, makespan, lower_bound
 
 if __name__ == "__main__":
     filename = sys.argv[1]
@@ -456,9 +459,11 @@ if __name__ == "__main__":
     read_input(filename)
     sol = 0
     startime = time.time()
-    peak, makespan = calculate_peak()
+    peak, makespan, lower_bound = calculate_peak()
     X, A, S = generate_variables(n,m,makespan)
-    bestValue, ansmap, var, clauses, status, sol = optimal(X,S,A,n,m,makespan,sol,startime, peak)
+    bestValue, ansmap, var, clauses, status, sol = optimal(
+        X, S, A, n, m, makespan, sol, startime, peak, lower_bound
+    )
     for line in ansmap:
         print(line)
     endtime = time.time()

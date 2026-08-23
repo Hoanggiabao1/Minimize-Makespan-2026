@@ -93,46 +93,8 @@ file_name = [
     ["LUTZ2", 24, 21]       # 71
 ]
 
-#Test 1 số thực nghiệm để kiểm tra tính ổn định của code trước khi chạy hết tất cả các file
-file_name1 = [
-     # Easy families 
-    # MERTENS 
-    ["MERTENS", 6, 10, 164],      # 0
-    ["MERTENS", 2, 29, 54],     # 1
-    # BOWMAN
-    ["BOWMAN", 5, 30, 146],      # 2
-
-    # JAESCHKE
-    ["JAESCHKE", 8, 10, 173],     # 3
-    ["JAESCHKE", 3, 25, 47],    # 4
-
-    # JACKSON
-    ["JACKSON", 8, 12, 166],      # 5
-    ["JACKSON", 3, 31, 57],     # 6
-
-    # MANSOOR
-    ["MANSOOR", 4, 93, 111],     # 7
-    ["MANSOOR", 2, 185, 71],     # 8
-
-    # MITCHELL
-    ["MITCHELL", 8, 27, 225],    # 9
-    ["MITCHELL", 3, 70, 84],    # 10
-
-    # ROSZIEG
-    ["ROSZIEG", 10, 25, 242],    # 11
-    ["ROSZIEG", 4, 63, 118],     # 12
-
-    # Hard families
-    # BUXEY
-    ["BUXEY", 7, 93, 184],       # 13
-    ["BUXEY", 14, 47, 999],      # 14
-   
-    ["SAWYER", 14, 47, 282],     # 15
-    ["SAWYER", 7, 93, 158]       # 16
-]
-
 TIMEOUT_LIMIT = 3600
-INPUT_FOLDER = "Peak_UB_LB"
+INPUT_FOLDER = "AVG_Peak"
 INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_SM_Ti,j_noE.py"
 OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_SM_Ti,j_noE.csv"
 

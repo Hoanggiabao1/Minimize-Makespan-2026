@@ -5,6 +5,15 @@ import sys
 import gurobipy
 from gurobipy import GRB
 from dotenv import load_dotenv
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from search_support import (  # noqa: E402
+    analytical_cycle_lower_bound,
+    average_power_cap,
+    initial_probe_horizon,
+    next_probe_horizon,
+)
 
 # 1. Tự động tìm và nạp các biến môi trường từ file .env vào hệ thống
 load_dotenv()
@@ -55,7 +64,7 @@ def solver_status(model):
         return "OOM"
     return f"STATUS_{model.Status}"
 
-def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
+def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan, lower_bound):
     cons = 0
     # (1) Objective
     model.setObjective(makespan, gurobipy.GRB.MINIMIZE)
@@ -125,16 +134,19 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
     for i in range(n):
         model.addConstr(makespan >= gurobipy.quicksum(k * S[i][k] for k in range(len(S[i]))) + Ex_times[i])
         cons += 1
+
+    # (11) Lower bound constraint
+    makespan.LB = int(lower_bound)
     return model, cons
 
-def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W, time_limit=3600):
+def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W, time_limit, lower_bound):
     # Khởi tạo model dựa trên đối tượng env đã được cấu hình từ .env trước đó
     model, X, S, Wmax, makespan = create_assignment_model(n, m, c, gurobipy.Model(env=env), Ex_times, W)
-    model, cons = add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan)
+    model, cons = add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan, lower_bound)
     
     # Cấu hình các tham số chạy giải thuật
-    model.Params.TimeLimit = max(0.001, time_limit)
-    model.Params.SoftMemLimit = 4  # Gurobi measures this parameter in GB.
+    model.Params.TimeLimit = 3600
+    model.Params.SoftMemLimit = 8  # Gurobi measures this parameter in GB.
     model.Params.LogToConsole = 1     # ĐẶT BẰNG 1 để script ngoài bắt được log "New makespan:" theo thời gian thực
     
     model.optimize()
@@ -188,15 +200,12 @@ def get_value(solution, n, m, c, W, Ex_times):
     for task in range(n):
         station = next(k for k in range(m) if X_values[task][k] > 0.5)
         start = next(t for t, value in enumerate(S_values[task]) if value > 0.5)
-        print(f"Task {task + 1} assigned to machine {station + 1} at time {start}")
         for t in range(start, start + Ex_times[task]):
             schedule[station][t] = W[task]
 
     schedule[m] = [sum(schedule[j][t] for j in range(m)) for t in range(c)]
     peak = max(schedule[m])
     makespan = int(round(solution.getVarByName("makespan").X))
-    for line in schedule:
-        print(line[:makespan])
     return schedule, makespan, peak
 
 def write_to_csv(result):
@@ -208,8 +217,12 @@ def write_to_csv(result):
 def optimal(filename):
     n, W, precedence_relations, Ex_times = input_file(filename[0])
     m = filename[1]  # Number of stations
-    initial_c = filename[2]
-    c = max(initial_c, max(Ex_times))
+    peak = average_power_cap(W, m)
+    lower_bound = analytical_cycle_lower_bound(Ex_times, W, m, peak)
+    c = initial_probe_horizon(Ex_times, lower_bound, m)
+    initial_c = c
+    print(f"Initial probe horizon: {c}, Lower bound: {lower_bound}")
+    start_time = time.time()
     safe_horizon = sum(Ex_times)
     start_time = time.time()
     solution = None
@@ -219,7 +232,7 @@ def optimal(filename):
         print(f"n={n}, m={m}, c={c}")
         remaining = 3600 - (time.time() - start_time)
         solution, var, cons = solve_assignment_problem(
-            n, m, c, Ex_times, precedence_relations, W, remaining
+            n, m, c, Ex_times, precedence_relations, W, remaining, lower_bound
         )
         status = solver_status(solution)
         if status == "Infeasible" and c < safe_horizon:
@@ -279,9 +292,33 @@ file_name2 = [
     ["SAWYER", 7, 93, 158]       # 16
 ]
 
+file_name2 = [
+    ["MERTENS", 5],   # 0
+    ["JACKSON", 8],   # 1
+    ["JACKSON", 6],   # 2
+    ["JACKSON", 5],   # 3
+    ["MITCHELL", 8],  # 4
+    ["ROSZIEG", 10],  # 5
+    ["ROSZIEG", 8],   # 6
+    ["BUXEY", 8],     # 7
+    ["BUXEY", 11],    # 8
+    ["BUXEY", 13],    # 9
+    ["BUXEY", 12],    # 10
+    ["BUXEY", 10],    # 11
+    ["SAWYER", 14],   # 12
+    ["SAWYER", 12],   # 13
+    ["SAWYER", 13],   # 14
+    ["SAWYER", 11],   # 15
+    ["SAWYER", 10],   # 16
+    ["SAWYER", 7],    # 17
+    ["GUNTHER", 14],  # 18
+    ["GUNTHER", 12],  # 19
+    ["GUNTHER", 8]   # 20
+]
+
 if __name__ == "__main__":
     if len(sys.argv) == 4:
         optimal([sys.argv[1], int(sys.argv[2]), int(sys.argv[3])])
     else:
         for item in file_name2:
-            optimal(item)
+            optimal(item + [0])

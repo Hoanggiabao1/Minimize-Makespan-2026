@@ -103,7 +103,7 @@ for file_info in file_name:
     result = ""
     start_time = time.time()
     try:
-        res = subprocess.run(["python", "-u", "Peak_UB_LB/D_SAT.py", file_name, str(m)], 
+        res = subprocess.run(["python", "-u", "AVG_Peak/D_SAT.py", file_name, str(m)], 
                    timeout=3600, text=True, capture_output=True)
         result = res.stdout
     except subprocess.TimeoutExpired as e:
@@ -142,6 +142,6 @@ for file_info in file_name:
         row_csv.append("Optimal")
     else:
         row_csv.append("TIMEOUT")
-    with open("Peak_UB_LB/Output/D_SAT.csv", "a") as f:
+    with open("AVG_Peak/Output/D_SAT.csv", "a") as f:
         row_csv_clean = [str(x) if x is not None else "" for x in row_csv]
         f.write(",".join(row_csv_clean) + "\n")

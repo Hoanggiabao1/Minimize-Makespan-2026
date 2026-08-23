@@ -414,7 +414,7 @@ def get_value(solution, c):
 
         return value, [table[i][:value] for i in range(m)]
 
-def optimal(X, S, A, n, m, makespan, sol, start_time, peak, probe_budget=None):
+def optimal(X, S, A, n, m, makespan, sol, start_time, peak, lower_bound, probe_budget=None):
     global filename
     
     ip1, ip2 = preprocess(n, m, makespan, time_list, adj)
@@ -442,6 +442,9 @@ def optimal(X, S, A, n, m, makespan, sol, start_time, peak, probe_budget=None):
     print("New makespan:", bestValue, end="\r")
     
     while (True):
+        if bestValue - 1 < lower_bound:
+            print("Reached lower bound. Optimal solution found.")
+            return bestValue, ansmap, var_counter, clauses, "Optimal", sol
         for i in range(n):
             if bestValue - time_list[i] - 1 < 0:
                 print("Optimal solution found.")
@@ -522,7 +525,8 @@ if __name__ == "__main__":
         X, A, S = generate_variables(n,m,makespan)
         probe_budget = None if makespan == safe_horizon else PRIMAL_CONFLICT_BUDGET
         candidate, candidate_map, var, clauses, probe_status, sol = optimal(
-            X, S, A, n, m, makespan, sol, startime, peak, probe_budget
+            X, S, A, n, m, makespan, sol, startime, peak,
+            final_lower_bound, probe_budget
         )
         if probe_status == "Optimal":
             bestValue, ansmap, status = candidate, candidate_map, probe_status

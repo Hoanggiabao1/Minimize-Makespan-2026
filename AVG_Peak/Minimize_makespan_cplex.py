@@ -6,6 +6,15 @@ from docplex.cp.model import CpoModel
 import time
 import csv
 from docplex.cp.config import context
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from search_support import (  # noqa: E402
+    analytical_cycle_lower_bound,
+    average_power_cap,
+    initial_probe_horizon,
+    next_probe_horizon,
+)
 
 cpo_execfile = os.getenv("CPO_EXECFILE")
 if cpo_execfile:
@@ -14,7 +23,7 @@ if cpo_execfile:
 def calculate_qmax(W, m):
     return (m * sum(W) + len(W) * max(W)) // (2 * len(W))
 
-def create_assignment_model(n, m, c, model, Ex_times, W):
+def create_assignment_model(n, m, c, model, Ex_times, W, lower_bound):
     X = [[model.binary_var(name=f'X_{i}_{j}') for j in range(m)] for i in range(n)]
     S = [
         [model.binary_var(name=f'S_{i}_{t}') for t in range(max(0, c - Ex_times[i] + 1))]
@@ -51,10 +60,12 @@ def objective_gap(solution):
     except (AttributeError, IndexError, TypeError, ValueError):
         return None
 
-def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan):
+def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan, lower_bound):
     cons = 0
     # (1) Objective
     model.add_constraint(model.minimize(makespan))
+    cons += 1
+    model.add_constraint(makespan >= lower_bound)
     cons += 1
     # (2) Each task assigned to exactly one station
     for j in range(n):
@@ -124,10 +135,15 @@ def add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, preceden
         cons += 1
     return model, cons
 
-def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W, time_limit=3600):
-    model, X, S, Wmax, makespan = create_assignment_model(n, m, c, CpoModel(), Ex_times, W)
+def solve_assignment_problem(n, m, c, Ex_times, precedence_relations, W, lower_bound, time_limit=3600):
+    model, X, S, Wmax, makespan = create_assignment_model(
+        n, m, c, CpoModel(), Ex_times, W, lower_bound
+    )
     print("Wmax =", Wmax)
-    model, cons = add_assignment_constraints(n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations, makespan)
+    model, cons = add_assignment_constraints(
+        n, m, c, model, X, S, Wmax, W, Ex_times, precedence_relations,
+        makespan, lower_bound
+    )
     model.set_parameters(LogVerbosity="Quiet", TimeLimit=max(1, time_limit))
     try:
         solution = model.solve()
@@ -222,8 +238,11 @@ def write_to_csv(result):
 def optimal(filename):
     n, W, precedence_relations, Ex_times = input_file(filename[0])
     m = filename[1]  # Number of stations
+    lower_bound = analytical_cycle_lower_bound(
+        Ex_times, W, m, calculate_qmax(W, m)
+    )
     initial_c = filename[2]
-    c = max(initial_c, max(Ex_times))
+    c = max(initial_c, lower_bound, max(Ex_times))
     safe_horizon = sum(Ex_times)
     start_time = time.time()
     solution = None
@@ -235,7 +254,7 @@ def optimal(filename):
         last_solved_c = c
         remaining = 3600 - (time.time() - start_time)
         solution, var, cons = solve_assignment_problem(
-            n, m, c, Ex_times, precedence_relations, W, remaining
+            n, m, c, Ex_times, precedence_relations, W, lower_bound, remaining
         )
         status = solver_status(solution)
         if status == "Infeasible" and c < safe_horizon:
@@ -411,40 +430,27 @@ file_name = [
     ]
 
 file_name2 = [
-    # Easy families 
-    # MERTENS 
-    ["MERTENS", 6, 10, 164],      # 0
-    ["MERTENS", 2, 29, 54],     # 1
-    # BOWMAN
-    ["BOWMAN", 5, 30, 146],      # 2
-
-    # JAESCHKE
-    ["JAESCHKE", 8, 10, 173],     # 3
-    ["JAESCHKE", 3, 25, 47],    # 4
-
-    # JACKSON
-    ["JACKSON", 8, 12, 166],      # 5
-    ["JACKSON", 3, 31, 57],     # 6
-
-    # MANSOOR
-    ["MANSOOR", 4, 93, 111],     # 7
-    ["MANSOOR", 2, 185, 71],     # 8
-
-    # MITCHELL
-    ["MITCHELL", 8, 27, 225],    # 9
-    ["MITCHELL", 3, 70, 84],    # 10
-
-    # ROSZIEG
-    ["ROSZIEG", 10, 25, 242],    # 11
-    ["ROSZIEG", 4, 63, 118],     # 12
-
-    # Hard families
-    # BUXEY
-    ["BUXEY", 7, 93, 184],       # 13
-    ["BUXEY", 14, 47, 999],      # 14
-   
-    ["SAWYER", 14, 47, 282],     # 15
-    ["SAWYER", 7, 93, 158]       # 16
+    ["MERTENS", 2],
+    ["JAESCHKE", 6],
+    ["JACKSON", 6],
+    ["JACKSON", 5],
+    ["JACKSON", 4],
+    ["MANSOOR", 2],
+    ["MITCHELL", 8],
+    ["ROSZIEG", 10],
+    ["ROSZIEG", 6],
+    ["ROSZIEG", 8],
+    ["BUXEY", 8],
+    ["BUXEY", 11],
+    ["BUXEY", 13],
+    ["SAWYER", 14],
+    ["SAWYER", 8],
+    ["SAWYER", 12],
+    ["SAWYER", 11],
+    ["SAWYER", 10],
+    ["SAWYER", 7],
+    ["SAWYER", 5],
+    ["GUNTHER", 9]
 ]
 
 
@@ -453,4 +459,4 @@ if __name__ == "__main__":
         optimal([sys.argv[1], int(sys.argv[2]), int(sys.argv[3])])
     else:
         for item in file_name2:
-            optimal(item)
+            optimal(item + [0])
