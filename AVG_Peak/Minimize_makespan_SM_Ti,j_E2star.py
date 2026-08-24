@@ -10,9 +10,12 @@ import fileinput
 from tabulate import tabulate
 import webbrowser
 import sys
+import os
 from pathlib import Path
 from pysat.pb import PBEnc, EncType
 import csv
+
+ENABLE_CSE17 = os.environ.get("SALBP_ENABLE_CSE17", "0") == "1"
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from search_support import (  # noqa: E402
@@ -372,11 +375,12 @@ def generate_clauses(n,m,c,time_list,adj,ip1,ip2,X,S,A, peak):
                     # X[j][k] -> -S[j][t] cse-16
                     clauses.append([-X[j][k], -S[j][t]])
 
-    #cse-17
-    for j in range(n):
-        if(time_list[j] >= c/2):
-            for t in range(c-time_list[j],time_list[j]):
-                clauses.append([A[j][t]])
+    # Optional CSE-17 strengthening; disabled in the locked paper matrix.
+    if ENABLE_CSE17:
+        for j in range(n):
+            if time_list[j] >= c / 2:
+                for t in range(c - time_list[j], time_list[j]):
+                    clauses.append([A[j][t]])
 
     # Power peak constraints
     var = var_counter + 1
