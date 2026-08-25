@@ -8,11 +8,11 @@ to station assignment, precedence, non-overlap, and a global power cap.
 
 - `Peak_UB_LB/`: `Qmax = floor((sum of the m largest powers + max power) / 2)`.
 - `AVG_Peak/`: `Qmax = floor((m * average power + max power) / 2)`.
-- `Minimize_makespan_origin.py`: baseline incremental SAT encoding.
-- `Minimize_makespan_SM.py`: sequential-merger encoding.
-- `Minimize_makespan_SM_Ti,j.py`: task-pair-specific sequential-merger encoding.
-- `Minimize_makespan_cplex.py`: IBM CP Optimizer model (CPO).
-- `Minimize_makespan_cplex_mp.py`: CPLEX-MIP model.
+- `ORG_Estar.py`: baseline incremental SAT encoding.
+- `SS_3_Estar.py`: sequential-merger encoding.
+- `SS_D_Estar.py`: task-pair-specific sequential-merger encoding.
+- `CPLEX.py`: IBM CP Optimizer model (CPO).
+- `CPLEXMP.py`: CPLEX-MIP model.
 - `*gurobi.py`: Gurobi MIP model.
 
 The SAT entrypoints use the direct precedence arcs `E` by default.  Pass `E*`
@@ -52,12 +52,12 @@ DOcplex configuration.  License values must remain outside version control.
 From this directory:
 
 ```bash
-python3 Peak_UB_LB/Minimize_makespan_origin.py MERTENS 6 E
-python3 Peak_UB_LB/Minimize_makespan_SM.py MERTENS 6 E
-python3 'Peak_UB_LB/Minimize_makespan_SM_Ti,j.py' MERTENS 6 E
-python3 Peak_UB_LB/Minimize_makespan_cplex.py MERTENS 6 10
-python3 Peak_UB_LB/Minimize_makespan_cplex_mp.py MERTENS 6
-python3 Peak_UB_LB/Minimize_makespan_gurobi.py MERTENS 6 10
+python3 Peak_UB_LB/ORG_Estar.py MERTENS 6 E
+python3 Peak_UB_LB/SS_3_Estar.py MERTENS 6 E
+python3 Peak_UB_LB/SS_D_Estar.py MERTENS 6 E
+python3 Peak_UB_LB/CPLEX.py MERTENS 6 10
+python3 Peak_UB_LB/CPLEXMP.py MERTENS 6
+python3 Peak_UB_LB/GUROBI.py MERTENS 6 10
 ```
 
 For CPO and Gurobi, the final argument is the initial horizon; the current

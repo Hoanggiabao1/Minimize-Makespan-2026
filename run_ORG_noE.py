@@ -95,7 +95,7 @@ file_name = [
 
 TIMEOUT_LIMIT = 3600
 INPUT_FOLDER = "AVG_Peak"
-INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_origin_noE.py"
+INPUT_FILE_NAME = INPUT_FOLDER + "/ORG_noE.py"
 OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/incremental_binary_merger_noE.csv"
 
 for i, item in enumerate(file_name):

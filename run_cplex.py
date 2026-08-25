@@ -95,7 +95,7 @@ file_name = [
 
 TIMEOUT_LIMIT = 3600
 INPUT_FOLDER = "Peak_UB_LB"
-INPUT_FILE_NAME = INPUT_FOLDER + "/Minimize_makespan_cplex_mp.py"
+INPUT_FILE_NAME = INPUT_FOLDER + "/CPLEXMP.py"
 OUTPUT_FILE_NAME = INPUT_FOLDER + "/Output/result_cplex_mip.csv"
 
 for i, item in enumerate(file_name[48:]):

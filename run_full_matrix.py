@@ -38,9 +38,9 @@ class Instance:
 
 
 SAT_SOLVERS = {
-    "origin": "Minimize_makespan_origin.py",
-    "sm": "Minimize_makespan_SM.py",
-    "sm_tij": "Minimize_makespan_SM_Ti,j.py",
+    "origin": "ORG_Estar.py",
+    "sm": "SS_3_Estar.py",
+    "sm_tij": "SS_D_Estar.py",
 }
 
 MAIN_FAMILIES = {
@@ -61,16 +61,16 @@ MAIN_FAMILIES = {
 
 ILP_SOLVERS = {
     "cplex_cp": {
-        "Peak_UB_LB": "Minimize_makespan_cplex.py",
-        "AVG_Peak": "Minimize_makespan_cplex.py",
+        "Peak_UB_LB": "CPLEX.py",
+        "AVG_Peak": "CPLEX.py",
     },
     "cplex_mip": {
-        "Peak_UB_LB": "Minimize_makespan_cplex_mp.py",
-        "AVG_Peak": "Minimize_makespan_cplex_mp.py",
+        "Peak_UB_LB": "CPLEXMP.py",
+        "AVG_Peak": "CPLEXMP.py",
     },
     "gurobi": {
-        "Peak_UB_LB": "Minimize_makespan_gurobi.py",
-        "AVG_Peak": "Minimize_makespan_gurobi.py",
+        "Peak_UB_LB": "GUROBI.py",
+        "AVG_Peak": "GUROBI.py",
     },
 }
 
@@ -133,7 +133,7 @@ EVENT_PREFIX = "SALBP_EVENT "
 
 
 def load_instances() -> list[Instance]:
-    source = ROOT / "run_origin.py"
+    source = ROOT / "run_ORG_Estar.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     for node in tree.body:
         if isinstance(node, ast.Assign):
@@ -148,7 +148,7 @@ def load_instances() -> list[Instance]:
                     instance = Instance(str(row[0]), int(row[1]), int(row[2]))
                     unique.setdefault((instance.name.upper(), instance.m), instance)
                 return list(unique.values())
-    raise RuntimeError("Could not find file_name benchmark list in run_origin.py")
+    raise RuntimeError("Could not find file_name benchmark list in run_ORG_Estar.py")
 
 
 def read_instance_data(name: str) -> tuple[list[int], list[int]]:
